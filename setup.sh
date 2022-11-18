@@ -5,24 +5,24 @@ pip install open3d==0.10 timm==0.4.5
 pip install torch torchvision torchaudio \
   --extra-index-url https://download.pytorch.org/whl/cu116
 
-HOME=`pwd`/../PoinTr
+HOME=`pwd`/pointr_detect/Lib
 
 # Chamfer Distance
-cd $HOME/extensions/chamfer_dist
+cd $HOME/chamfer_dist
 python setup.py install --user
 
 # NOTE: For GRNet
 
 # Cubic Feature Sampling
-cd $HOME/extensions/cubic_feature_sampling
+cd $HOME/cubic_feature_sampling
 python setup.py install --user
 
 # Gridding & Gridding Reverse
-cd $HOME/extensions/gridding
+cd $HOME/gridding
 python setup.py install --user
 
 # Gridding Loss
-cd $HOME/extensions/gridding_loss
+cd $HOME/gridding_loss
 python setup.py install --user
 
 pip install \
