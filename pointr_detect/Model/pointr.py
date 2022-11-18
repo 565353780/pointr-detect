@@ -45,17 +45,21 @@ class PoinTr(nn.Module):
                                           nn.LeakyReLU(negative_slope=0.2),
                                           nn.Conv1d(1024, 1024, 1))
         self.reduce_map = nn.Linear(self.trans_dim + 1027, self.trans_dim)
-        self.build_loss_func()
 
-    def build_loss_func(self):
         self.loss_func = ChamferDistanceL1()
+        return
 
-    def get_loss(self, ret, gt):
-        loss_coarse = self.loss_func(ret[0], gt)
-        loss_fine = self.loss_func(ret[1], gt)
-        return loss_coarse, loss_fine
+    def get_loss(self, data):
+        data['losses']['loss_coarse'] = self.loss_func(
+            data['predictions']['coarse_points'],
+            data['inputs']['point_array'])
+        data['losses']['loss_fine'] = self.loss_func(
+            data['predictions']['dense_points'], data['inputs']['point_array'])
+        return data
 
-    def forward(self, xyz):
+    def forward(self, data):
+        xyz = data['inputs']['point_array']
+
         q, coarse_point_cloud = self.base_model(xyz)  # B M C and B M 3
 
         B, M, C = q.shape
@@ -88,9 +92,11 @@ class PoinTr(nn.Module):
 
         # cat the input
         inp_sparse = fps(xyz, self.num_query)
-        coarse_point_cloud = torch.cat([coarse_point_cloud, inp_sparse],
-                                       dim=1).contiguous()
-        rebuild_points = torch.cat([rebuild_points, xyz], dim=1).contiguous()
+        data['predictions']['coarse_points'] = torch.cat(
+            [coarse_point_cloud, inp_sparse], dim=1).contiguous()
+        data['predictions']['dense_points'] = torch.cat([rebuild_points, xyz],
+                                                        dim=1).contiguous()
 
-        ret = (coarse_point_cloud, rebuild_points)
-        return ret
+        if self.training:
+            data = self.get_loss(data)
+        return data

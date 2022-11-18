@@ -70,7 +70,18 @@ class Detector(object):
         self.model.eval()
 
         data = {'inputs': {}, 'predictions': {}, 'losses': {}, 'logs': {}}
+        data['inputs']['point_array'] = torch.tensor(
+            point_array.reshape(1, -1, 3).astype(np.float32)).cuda()
+        if point_array.shape[1] == 2048:
+            data['inputs']['sample_point_array'] = data['inputs'][
+                'point_array']
+        else:
+            data['inputs']['sample_point_array'] = fps(
+                data['inputs']['point_array'], 2048)
+        data = self.model(data)
+        return data
 
+    def detectDataset(self):
         dataset = ShapeNet55Dataset()
         dataloader = torch.utils.data.DataLoader(dataset,
                                                  batch_size=1,
@@ -78,22 +89,24 @@ class Detector(object):
                                                  drop_last=False,
                                                  num_workers=4,
                                                  worker_init_fn=worker_init_fn)
-        for _, _, data in tqdm(dataloader):
-            gt = data.cuda()
+        for _, _, gt in tqdm(dataloader):
+            data = {'inputs': {}, 'predictions': {}, 'losses': {}, 'logs': {}}
+            gt = gt.cuda()
             num_crop = int(8192 / 2)
             for item in choice:
-                renderPointArrayWithUnitBBox(data[0])
+                renderPointArrayWithUnitBBox(gt[0])
                 partial, _ = seprate_point_cloud(gt,
                                                  8192,
                                                  num_crop,
                                                  fixed_points=item)
-                partial = fps(partial, 2048)
 
                 #  points = partial.cpu().numpy()[0]
-                #  points = moveToMeanPoint(points).reshape(1, -1, 3)
+                #  points = moveToOrigin(points).reshape(1, -1, 3)
                 #  partial = torch.tensor(points).cuda()
 
                 renderPointArrayWithUnitBBox(partial[0])
-                coarse_points, dense_points = self.model(partial)
+                data = self.detectPointArray(partial)
+                coarse_points = data['predictions']['coarse_points']
+                dense_points = data['predictions']['dense_points']
                 renderPointArrayWithUnitBBox(dense_points[0])
-        return data
+        return True

@@ -3,6 +3,9 @@
 
 import torch
 import random
+import numpy as np
+import torch.nn.functional as F
+
 from pointnet2_ops import pointnet2_utils
 
 
@@ -26,6 +29,11 @@ def seprate_point_cloud(xyz,
     '''
      seprate point cloud: usage : using to generate the incomplete point cloud with a setted number.
     '''
+    ndarray_in = False
+    if isinstance(xyz, np.ndarray):
+        ndarray_in = True
+        xyz = torch.tensor(xyz.reshape(1, -1, 3)).cuda()
+
     _, n, c = xyz.shape
 
     assert n == num_points
@@ -78,5 +86,9 @@ def seprate_point_cloud(xyz,
 
     input_data = torch.cat(INPUT, dim=0)  # B N 3
     crop_data = torch.cat(CROP, dim=0)  # B M 3
+
+    if ndarray_in:
+        return input_data.contiguous().cpu().numpy().reshape(
+            -1, 3), crop_data.contiguous().cpu().numpy().reshape(-1, 3)
 
     return input_data.contiguous(), crop_data.contiguous()
