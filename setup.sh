@@ -2,7 +2,7 @@ pip install argparse easydict h5py matplotlib numpy opencv-python pyyaml \
   scipy tensorboardX tqdm transforms3d typing-extensions
 pip install open3d==0.10 timm==0.4.5
 
-pip3 install torch torchvision torchaudio \
+pip install torch torchvision torchaudio \
   --extra-index-url https://download.pytorch.org/whl/cu116
 
 HOME=`pwd`/../PoinTr
