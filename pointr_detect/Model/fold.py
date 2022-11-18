@@ -4,11 +4,6 @@
 import torch
 from torch import nn
 
-from pointnet2_ops import pointnet2_utils
-from extensions.chamfer_dist import ChamferDistanceL1
-from .Transformer import PCTransformer
-from .build import MODELS
-
 
 class Fold(nn.Module):
 

@@ -5,10 +5,11 @@ import torch
 from torch import nn
 
 from pointnet2_ops import pointnet2_utils
-from extensions.chamfer_dist import ChamferDistanceL1
 
 from pointr_detect.Model.fold import Fold
 from pointr_detect.Model.pc_transformer import PCTransformer
+
+from pointr_detect.Lib.chamfer_dist import ChamferDistanceL1
 
 
 def fps(pc, num):
@@ -20,12 +21,12 @@ def fps(pc, num):
 
 class PoinTr(nn.Module):
 
-    def __init__(self, config, **kwargs):
+    def __init__(self):
         super().__init__()
-        self.trans_dim = config.trans_dim
-        self.knn_layer = config.knn_layer
-        self.num_pred = config.num_pred
-        self.num_query = config.num_query
+        self.trans_dim = 384
+        self.knn_layer = 1
+        self.num_pred = 6144
+        self.num_query = 96
 
         self.fold_step = int(pow(self.num_pred // self.num_query, 0.5) + 0.5)
         self.base_model = PCTransformer(in_chans=3,
