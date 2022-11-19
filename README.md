@@ -11,7 +11,7 @@ conda activate pointr
 ## Run
 
 ```bash
-./run.sh
+python demo.py
 ```
 
 ## Enjoy it~
