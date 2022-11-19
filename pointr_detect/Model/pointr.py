@@ -40,9 +40,21 @@ class PoinTr(nn.Module):
 
         self.reduce_map = nn.Linear(self.trans_dim + 1027, self.trans_dim)
 
-        #  self.bbox_decoder = nn.Linear(self.trans_dim + 1027, 8)
+        self.bbox_feature_decoder = nn.Sequential(
+            nn.Conv1d(self.num_query * self.trans_dim, self.trans_dim, 1),
+            nn.LeakyReLU(negative_slope=0.2),
+            nn.Conv1d(self.trans_dim, self.trans_dim, 1))
+
+        self.bbox_decoder = nn.Sequential(nn.Conv1d(self.trans_dim, 6, 1),
+                                          nn.LeakyReLU(negative_slope=0.2),
+                                          nn.Conv1d(6, 6, 1))
+
+        self.center_decoder = nn.Sequential(nn.Conv1d(self.trans_dim, 3, 1),
+                                            nn.LeakyReLU(negative_slope=0.2),
+                                            nn.Conv1d(3, 3, 1))
 
         self.loss_func = ChamferDistanceL1()
+        self.bbox_loss = nn.SmoothL1Loss()
         return
 
     def get_loss(self, data):
@@ -51,8 +63,15 @@ class PoinTr(nn.Module):
         loss_fine = self.loss_func(data['predictions']['dense_points'],
                                    data['inputs']['point_array'])
 
+        loss_bbox = self.bbox_loss(data['predictions']['bbox'],
+                                   data['inputs']['bbox'])
+        loss_center = self.bbox_loss(data['predictions']['center'],
+                                     data['inputs']['center'])
+
         data['losses']['loss_coarse'] = loss_coarse
         data['losses']['loss_fine'] = loss_fine
+        data['losses']['loss_bbox'] = loss_bbox * 0.1
+        data['losses']['loss_center'] = loss_center * 0.1
         return data
 
     def forward(self, data):
@@ -82,6 +101,16 @@ class PoinTr(nn.Module):
         reduce_global_feature = self.reduce_map(
             global_feature.reshape(B * M, -1))
 
+        # BMxC -[reshape]-> BxMCx1 -[bbox_feature_decoder]-> BxCx1
+        bbox_feature = self.bbox_feature_decoder(
+            reduce_global_feature.reshape(B, -1, 1))
+
+        # BxCx1 -[bbox_decoder]-> Bx6x1 -[reshape]-> Bx6
+        bbox = self.bbox_decoder(bbox_feature).reshape(B, -1)
+
+        # BxCx1 -[center_decoder]-> Bx3x1 -[reshape]-> Bx3
+        center = self.center_decoder(bbox_feature).reshape(B, -1)
+
         # BMxC -[foldingnet]-> BMx3xS -[reshape]-> BxMx3xS
         relative_patch_points = self.foldingnet(reduce_global_feature).reshape(
             B, M, 3, -1)
@@ -109,6 +138,8 @@ class PoinTr(nn.Module):
         data['predictions']['rebuild_patch_points'] = rebuild_patch_points
         data['predictions']['coarse_points'] = coarse_points
         data['predictions']['dense_points'] = dense_points
+        data['predictions']['bbox'] = bbox
+        data['predictions']['center'] = center
 
         if self.training:
             data = self.get_loss(data)
