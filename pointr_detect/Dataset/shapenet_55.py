@@ -15,7 +15,6 @@ class ShapeNet55Dataset(data.Dataset):
         self.data_root = '../PoinTr/data/ShapeNet55-34/ShapeNet-55'
         self.pc_path = '/home/chli/chLi/PoinTr/ShapeNet55/shapenet_pc'
         self.subset = 'test'
-        self.npoints = 8192
         self.data_list_file = os.path.join(self.data_root,
                                            f'{self.subset}.txt')
 
@@ -46,12 +45,16 @@ class ShapeNet55Dataset(data.Dataset):
     def __getitem__(self, idx):
         sample = self.file_list[idx]
 
-        data = IO.get(os.path.join(self.pc_path,
-                                   sample['file_path'])).astype(np.float32)
-        data = self.pc_norm(data)
-        data = torch.from_numpy(data).float()
+        data = {'inputs': {}, 'predictions': {}, 'losses': {}, 'logs': {}}
 
-        return sample['taxonomy_id'], sample['model_id'], data
+        data['inputs']['taxonomy_id'] = sample['taxonomy_id']
+        data['inputs']['model_id'] = sample['model_id']
+
+        point_array = IO.get(os.path.join(
+            self.pc_path, sample['file_path'])).astype(np.float32)
+        point_array = self.pc_norm(point_array)
+        data['inputs']['point_array'] = torch.from_numpy(point_array).float()
+        return data
 
     def __len__(self):
         return len(self.file_list)
