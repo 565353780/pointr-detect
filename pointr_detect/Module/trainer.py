@@ -21,7 +21,7 @@ from pointr_detect.Scheduler.bn_momentum import BNMomentumScheduler
 
 from pointr_detect.Method.time import getCurrentTime
 from pointr_detect.Method.sample import seprate_point_cloud
-from pointr_detect.Method.move import moveToOrigin, moveToMeanPoint
+from pointr_detect.Method.trans import moveToOrigin, moveToMeanPoint
 from pointr_detect.Method.device import toCuda
 from pointr_detect.Method.path import createFileFolder, renameFile, removeFile
 from pointr_detect.Method.render import renderPointArrayWithUnitBBox

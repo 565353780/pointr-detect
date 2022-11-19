@@ -10,7 +10,7 @@ from tqdm import tqdm
 from pointr_detect.Model.pointr import PoinTr
 
 from pointr_detect.Method.sample import fps, seprate_point_cloud
-from pointr_detect.Method.move import moveToOrigin, moveToMeanPoint
+from pointr_detect.Method.trans import moveToOrigin, moveToMeanPoint
 from pointr_detect.Method.device import toCuda
 from pointr_detect.Method.render import renderPointArrayWithUnitBBox
 

@@ -6,7 +6,7 @@ import numpy as np
 import open3d as o3d
 
 from pointr_detect.Method.sample import seprate_point_cloud
-from pointr_detect.Method.move import moveToOrigin
+from pointr_detect.Method.trans import normalizePointArray, moveToOrigin
 from pointr_detect.Method.render import renderPointArrayWithUnitBBox
 
 from pointr_detect.Module.detector import Detector
@@ -23,10 +23,13 @@ def demo():
     detector.loadPoinTrModel(pointr_model_file_path)
 
     points = np.load(npy_file_path)
-    points = moveToOrigin(points)
-    renderPointArrayWithUnitBBox(points)
+    points = normalizePointArray(points)
+    partial, _ = seprate_point_cloud(points, 0.5)
+    partial = moveToOrigin(partial)
 
-    data = detector.detectPointArray(points)
+    renderPointArrayWithUnitBBox(partial)
+
+    data = detector.detectPointArray(partial)
 
     print(data['predictions'].keys())
     renderPointArrayWithUnitBBox(data['predictions']['dense_points'][0])
@@ -48,6 +51,7 @@ def demo_mesh():
     mesh = o3d.io.read_triangle_mesh(shapenet_model_file_path)
     pcd = mesh.sample_points_uniformly(8192)
     points = np.array(pcd.points)
+    points = normalizePointArray(points)
 
     partial, _ = seprate_point_cloud(points, 0.5)
     partial = moveToOrigin(partial)
