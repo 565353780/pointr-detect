@@ -11,12 +11,7 @@ from pointr_detect.Model.pc_transformer import PCTransformer
 
 from pointr_detect.Lib.chamfer_dist import ChamferDistanceL1
 
-
-def fps(pc, num):
-    fps_idx = pointnet2_utils.furthest_point_sample(pc, num)
-    sub_pc = pointnet2_utils.gather_operation(
-        pc.transpose(1, 2).contiguous(), fps_idx).transpose(1, 2).contiguous()
-    return sub_pc
+from pointr_detect.Method.sample import fps
 
 
 class PoinTr(nn.Module):
@@ -29,6 +24,7 @@ class PoinTr(nn.Module):
         self.num_query = 96
 
         self.fold_step = int(pow(self.num_pred // self.num_query, 0.5) + 0.5)
+
         self.base_model = PCTransformer(in_chans=3,
                                         embed_dim=self.trans_dim,
                                         depth=[6, 8],
@@ -58,42 +54,46 @@ class PoinTr(nn.Module):
         return data
 
     def forward(self, data):
+        # Bx#pointx3
         xyz = data['inputs']['point_array']
 
-        q, coarse_point_cloud = self.base_model(xyz)  # B M C and B M 3
+        # Bx#pointx3 -[base_model]-> BxMxC and BxMx3
+        q, coarse_point_cloud = self.base_model(xyz)
 
         B, M, C = q.shape
 
-        global_feature = self.increase_dim(q.transpose(1, 2)).transpose(
-            1, 2)  # B M 1024
-        global_feature = torch.max(global_feature, dim=1)[0]  # B 1024
+        # BxMxC -[transpose]-> BxCxM -[increase_dim]-> Bx1024xM -[transpose]-> BxMx1024
+        global_feature = self.increase_dim(q.transpose(1, 2)).transpose(1, 2)
 
-        rebuild_feature = torch.cat([
-            global_feature.unsqueeze(-2).expand(-1, M, -1), q,
-            coarse_point_cloud
-        ],
-                                    dim=-1)  # B M 1027 + C
+        # BxMx1024 -[max]-> Bx1024
+        global_feature = torch.max(global_feature, dim=1)[0]
 
-        rebuild_feature = self.reduce_map(rebuild_feature.reshape(B * M,
-                                                                  -1))  # BM C
-        # # NOTE: try to rebuild pc
-        # coarse_point_cloud = self.refine_coarse(rebuild_feature).reshape(B, M, 3)
+        # Bx1024 -[unsqueeze]-> Bx1x1024 -[expand]-> BxMx1024
+        maxpool_global_feature = global_feature.unsqueeze(-2).expand(-1, M, -1)
 
-        # NOTE: foldingNet
-        relative_xyz = self.foldingnet(rebuild_feature).reshape(B, M, 3,
-                                                                -1)  # B M 3 S
+        # BxMx1024 + BxMxC + BxMx3 -[cat]-> BxMx(C+1027)
+        rebuild_feature = torch.cat(
+            [maxpool_global_feature, q, coarse_point_cloud], dim=-1)
+
+        # BxMx(C+1027) -[reshape]-> BMx(C+1027) -[reduce_map]-> BMxC
+        rebuild_feature = self.reduce_map(rebuild_feature.reshape(B * M, -1))
+
+        # BMxC -[foldingnet]-> BMx3xS -[reshape]-> BxMx3xS
+        relative_xyz = self.foldingnet(rebuild_feature).reshape(B, M, 3, -1)
+
+        # BxMx3xS + BxMx3x1 = BxMx3xS -[transpose]-> BxMxSx3 -[reshape]-> BxMSx3
         rebuild_points = (relative_xyz +
                           coarse_point_cloud.unsqueeze(-1)).transpose(
-                              2, 3).reshape(B, -1, 3)  # B N 3
+                              2, 3).reshape(B, -1, 3)
 
-        # NOTE: fc
-        # relative_xyz = self.refine(rebuild_feature)  # BM 3S
-        # rebuild_points = (relative_xyz.reshape(B,M,3,-1) + coarse_point_cloud.unsqueeze(-1)).transpose(2,3).reshape(B, -1, 3)
-
-        # cat the input
+        # Bx#pointx3 -[fps]-> BxMx3
         inp_sparse = fps(xyz, self.num_query)
+
+        # BxMx3 + BxMx3 -[cat]-> Bx2Mx3
         data['predictions']['coarse_points'] = torch.cat(
             [coarse_point_cloud, inp_sparse], dim=1).contiguous()
+
+        # BxMSx3 + Bx#pointx3 -[cat]-> Bx(MS+#point)x3
         data['predictions']['dense_points'] = torch.cat([rebuild_points, xyz],
                                                         dim=1).contiguous()
 
