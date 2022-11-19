@@ -8,12 +8,13 @@ import torch.utils.data as data
 
 from pointr_detect.Data.io import IO
 
-from pointr_detect.Method.trans import normalizePointArray
+from pointr_detect.Method.trans import normalizePointArray, randomTransPointArray
+
 
 class ShapeNet55Dataset(data.Dataset):
 
     def __init__(self):
-        self.data_root = '../PoinTr/data/ShapeNet55-34/ShapeNet-55'
+        self.data_root = '/home/chli/chLi/PoinTr/data/ShapeNet55-34/ShapeNet-55'
         self.pc_path = '/home/chli/chLi/PoinTr/ShapeNet55/shapenet_pc'
         self.subset = 'test'
         self.data_list_file = os.path.join(self.data_root,
@@ -45,8 +46,17 @@ class ShapeNet55Dataset(data.Dataset):
 
         point_array = IO.get(os.path.join(
             self.pc_path, sample['file_path'])).astype(np.float32)
-        point_array = normalizePointArray(point_array)
+        point_array = randomTransPointArray(point_array)
+
+        min_point = np.min(point_array, axis=0)
+        max_point = np.max(point_array, axis=0)
+
+        bbox = np.hstack((min_point, max_point))
+        center = np.mean([min_point, max_point], axis=0)
+
         data['inputs']['point_array'] = torch.from_numpy(point_array).float()
+        data['inputs']['bbox'] = torch.from_numpy(bbox).float()
+        data['inputs']['center'] = torch.from_numpy(center).float()
         return data
 
     def __len__(self):

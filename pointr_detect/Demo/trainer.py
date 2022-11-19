@@ -10,5 +10,6 @@ def demo():
 
     trainer = Trainer()
     trainer.loadModel(model_file_path)
+    #  trainer.testTrain()
     trainer.train(print_progress)
     return True
