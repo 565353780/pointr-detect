@@ -24,35 +24,35 @@ class Detector(object):
             self.loadModel(model_file_path)
         return
 
-    def loadModel(self, model_file_path):
-        if not os.path.exists(model_file_path):
-            print("[WARN][Trainer::loadModel]")
-            print("\t model_file not exist!")
-            return True
-
+    def loadPoinTrModel(self, model_file_path):
         assert os.path.exists(model_file_path)
 
-        model_dict = torch.load(model_file_path)
-        self.model.load_state_dict(model_dict['pointr_model'])
+        print("[INFO][Detector::loadModel]")
+        print("\t start loading pointr model from :")
+        print("\t", model_file_path)
+
+        state_dict = torch.load(model_file_path)
+        if state_dict.get('model') is not None:
+            base_ckpt = {
+                k.replace("module.", ""): v
+                for k, v in state_dict['model'].items()
+            }
+        elif state_dict.get('base_model') is not None:
+            base_ckpt = {
+                k.replace("module.", ""): v
+                for k, v in state_dict['base_model'].items()
+            }
+        self.model.load_state_dict(base_ckpt)
         return True
 
-        if os.path.exists(self.model_file_path):
-            print("[INFO][Detector::loadModel]")
-            print("\t start loading model from :")
-            print("\t", self.model_file_path)
+    def loadModel(self, model_file_path):
+        assert os.path.exists(model_file_path)
 
-            state_dict = torch.load(self.model_file_path)
-            if state_dict.get('model') is not None:
-                base_ckpt = {
-                    k.replace("module.", ""): v
-                    for k, v in state_dict['model'].items()
-                }
-            elif state_dict.get('base_model') is not None:
-                base_ckpt = {
-                    k.replace("module.", ""): v
-                    for k, v in state_dict['base_model'].items()
-                }
-            self.model.load_state_dict(base_ckpt)
+        print("[INFO][Detector::loadModel]")
+        print("\t start loading model from :")
+        print("\t", model_file_path)
+        model_dict = torch.load(model_file_path)
+        self.model.load_state_dict(model_dict['pointr_model'])
         return True
 
     def detectPointArray(self, point_array):
