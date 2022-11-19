@@ -5,9 +5,10 @@ from pointr_detect.Module.trainer import Trainer
 
 
 def demo():
-    model_file_path = "/home/chli/chLi/PoinTr/pointr_training_from_scratch_c55_best.pth"
+    model_file_path = "./output/test/model_best.pth"
+    print_progress = True
 
-    trainer = Trainer(model_file_path)
-    trainer.testTrain()
-    trainer.train()
+    trainer = Trainer()
+    trainer.loadModel(model_file_path)
+    trainer.train(print_progress)
     return True
