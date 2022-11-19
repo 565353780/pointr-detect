@@ -1,4 +1,4 @@
-# PoinTr Manage
+# PoinTr Detect
 
 ## Install
 
