@@ -8,6 +8,7 @@ import torch.utils.data as data
 
 from pointr_detect.Data.io import IO
 
+from pointr_detect.Method.trans import normalizePointArray
 
 class ShapeNet55Dataset(data.Dataset):
 
@@ -34,14 +35,6 @@ class ShapeNet55Dataset(data.Dataset):
             })
         print(f'[DATASET] {len(self.file_list)} instances were loaded')
 
-    def pc_norm(self, pc):
-        """ pc: NxC, return NxC """
-        centroid = np.mean(pc, axis=0)
-        pc = pc - centroid
-        m = np.max(np.sqrt(np.sum(pc**2, axis=1)))
-        pc = pc / m
-        return pc
-
     def __getitem__(self, idx):
         sample = self.file_list[idx]
 
@@ -52,7 +45,7 @@ class ShapeNet55Dataset(data.Dataset):
 
         point_array = IO.get(os.path.join(
             self.pc_path, sample['file_path'])).astype(np.float32)
-        point_array = self.pc_norm(point_array)
+        point_array = normalizePointArray(point_array)
         data['inputs']['point_array'] = torch.from_numpy(point_array).float()
         return data
 
