@@ -138,6 +138,7 @@ class Trainer(object):
 
             data = self.model(data)
 
+            print(data['predictions'].keys())
             dense_points = data['predictions']['dense_points']
             #  renderPointArrayWithUnitBBox(dense_points[0])
         return True
