@@ -46,11 +46,13 @@ class PoinTr(nn.Module):
         return
 
     def get_loss(self, data):
-        data['losses']['loss_coarse'] = self.loss_func(
-            data['predictions']['coarse_points'],
-            data['inputs']['point_array'])
-        data['losses']['loss_fine'] = self.loss_func(
-            data['predictions']['dense_points'], data['inputs']['point_array'])
+        loss_coarse = self.loss_func(data['predictions']['coarse_points'],
+                                     data['inputs']['point_array'])
+        loss_fine = self.loss_func(data['predictions']['dense_points'],
+                                   data['inputs']['point_array'])
+
+        data['losses']['loss_coarse'] = loss_coarse
+        data['losses']['loss_fine'] = loss_fine
         return data
 
     def forward(self, data):
@@ -89,9 +91,6 @@ class PoinTr(nn.Module):
                                 coarse_point_cloud.unsqueeze(-1)).transpose(
                                     2, 3)
 
-        data['predictions']['coarse_point_cloud'] = coarse_point_cloud
-        data['predictions']['rebuild_patch_points'] = rebuild_patch_points
-
         # BxMxSx3 -[reshape]-> BxMSx3
         rebuild_points = rebuild_patch_points.reshape(B, -1, 3)
 
@@ -99,12 +98,17 @@ class PoinTr(nn.Module):
         sample_point_array = fps(point_array, self.num_query)
 
         # BxMx3 + BxMx3 -[cat]-> Bx2Mx3
-        data['predictions']['coarse_points'] = torch.cat(
-            [coarse_point_cloud, sample_point_array], dim=1).contiguous()
+        coarse_points = torch.cat([coarse_point_cloud, sample_point_array],
+                                  dim=1).contiguous()
 
         # BxMSx3 + Bx#pointx3 -[cat]-> Bx(MS+#point)x3
-        data['predictions']['dense_points'] = torch.cat(
-            [rebuild_points, point_array], dim=1).contiguous()
+        dense_points = torch.cat([rebuild_points, point_array],
+                                 dim=1).contiguous()
+
+        data['predictions']['coarse_point_cloud'] = coarse_point_cloud
+        data['predictions']['rebuild_patch_points'] = rebuild_patch_points
+        data['predictions']['coarse_points'] = coarse_points
+        data['predictions']['dense_points'] = dense_points
 
         if self.training:
             data = self.get_loss(data)
