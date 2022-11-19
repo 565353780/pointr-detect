@@ -13,20 +13,10 @@ from pointr_detect.Data.average_meter import AverageMeter
 
 from pointr_detect.Dataset.shapenet_55 import ShapeNet55Dataset
 
-from pointr_detect.Method.sample import fps, seprate_point_cloud
+from pointr_detect.Method.sample import seprate_point_cloud
 from pointr_detect.Method.move import moveToOrigin, moveToMeanPoint
+from pointr_detect.Method.device import toCuda
 from pointr_detect.Method.render import renderPointArrayWithUnitBBox
-
-choice = [
-    torch.Tensor([1, 1, 1]),
-    torch.Tensor([1, 1, -1]),
-    torch.Tensor([1, -1, 1]),
-    torch.Tensor([-1, 1, 1]),
-    torch.Tensor([-1, -1, 1]),
-    torch.Tensor([-1, 1, -1]),
-    torch.Tensor([1, -1, -1]),
-    torch.Tensor([-1, -1, -1])
-]
 
 
 def worker_init_fn(worker_id):
@@ -66,21 +56,6 @@ class Trainer(object):
             self.model.load_state_dict(base_ckpt)
         return True
 
-    def detectPointArray(self, point_array):
-        self.model.eval()
-
-        data = {'inputs': {}, 'predictions': {}, 'losses': {}, 'logs': {}}
-        data['inputs']['point_array'] = torch.tensor(
-            point_array.reshape(1, -1, 3).astype(np.float32)).cuda()
-        if point_array.shape[1] == 2048:
-            data['inputs']['sample_point_array'] = data['inputs'][
-                'point_array']
-        else:
-            data['inputs']['sample_point_array'] = fps(
-                data['inputs']['point_array'], 2048)
-        data = self.model(data)
-        return data
-
     def testTrain(self):
         dataset = ShapeNet55Dataset()
         dataloader = torch.utils.data.DataLoader(dataset,
@@ -89,26 +64,26 @@ class Trainer(object):
                                                  drop_last=False,
                                                  num_workers=4,
                                                  worker_init_fn=worker_init_fn)
-        for _, _, gt in tqdm(dataloader):
-            data = {'inputs': {}, 'predictions': {}, 'losses': {}, 'logs': {}}
-            gt = gt.cuda()
-            num_crop = int(8192 / 2)
-            for item in choice:
-                renderPointArrayWithUnitBBox(gt[0])
-                partial, _ = seprate_point_cloud(gt,
-                                                 8192,
-                                                 num_crop,
-                                                 fixed_points=item)
+        for data in tqdm(dataloader):
+            toCuda(data)
 
-                #  points = partial.cpu().numpy()[0]
-                #  points = moveToOrigin(points).reshape(1, -1, 3)
-                #  partial = torch.tensor(points).cuda()
+            sample_point_array, _ = seprate_point_cloud(
+                data['inputs']['point_array'], [0.25, 0.75])
 
-                renderPointArrayWithUnitBBox(partial[0])
-                data = self.detectPointArray(partial)
-                coarse_points = data['predictions']['coarse_points']
-                dense_points = data['predictions']['dense_points']
-                renderPointArrayWithUnitBBox(dense_points[0])
+            #  points = sample_point_array.cpu().numpy()[0]
+            #  points = moveToOrigin(points).reshape(1, -1, 3)
+            #  sample_point_array = torch.tensor(points).cuda()
+
+            data['inputs']['sample_point_array'] = sample_point_array
+
+            renderPointArrayWithUnitBBox(data['inputs']['point_array'][0])
+            renderPointArrayWithUnitBBox(
+                data['inputs']['sample_point_array'][0])
+
+            data = self.model(data)
+
+            dense_points = data['predictions']['dense_points']
+            #  renderPointArrayWithUnitBBox(dense_points[0])
         return True
 
     def train(self):
