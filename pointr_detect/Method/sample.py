@@ -14,6 +14,9 @@ def fps(data, number):
         data B N 3
         number int
     '''
+    if data.shape[1] == number:
+        return data
+
     fps_idx = pointnet2_utils.furthest_point_sample(data, number)
     fps_data = pointnet2_utils.gather_operation(
         data.transpose(1, 2).contiguous(), fps_idx).transpose(1,
@@ -21,33 +24,28 @@ def fps(data, number):
     return fps_data
 
 
-def seprate_point_cloud(xyz,
-                        num_points,
-                        crop,
-                        fixed_points=None,
-                        padding_zeros=False):
+def seprate_point_cloud(xyz, crop, fixed_points=None, padding_zeros=False):
     '''
      seprate point cloud: usage : using to generate the incomplete point cloud with a setted number.
     '''
-    ndarray_in = False
+    ndarray_input = False
     if isinstance(xyz, np.ndarray):
-        ndarray_in = True
-        xyz = torch.tensor(xyz.reshape(1, -1, 3)).cuda()
+        ndarray_input = True
+        xyz = torch.from_numpy(xyz.reshape(1, -1, 3)).float().cuda()
 
     _, n, c = xyz.shape
 
-    assert n == num_points
     assert c == 3
-    if crop == num_points:
+    if crop == 1:
         return xyz, None
 
     INPUT = []
     CROP = []
     for points in xyz:
         if isinstance(crop, list):
-            num_crop = random.randint(crop[0], crop[1])
+            num_crop = random.randint(int(n * crop[0]), int(n * crop[1]))
         else:
-            num_crop = crop
+            num_crop = int(n * crop)
 
         points = points.unsqueeze(0)
 
@@ -87,7 +85,7 @@ def seprate_point_cloud(xyz,
     input_data = torch.cat(INPUT, dim=0)  # B N 3
     crop_data = torch.cat(CROP, dim=0)  # B M 3
 
-    if ndarray_in:
+    if ndarray_input:
         return input_data.contiguous().cpu().numpy().reshape(
             -1, 3), crop_data.contiguous().cpu().numpy().reshape(-1, 3)
 
