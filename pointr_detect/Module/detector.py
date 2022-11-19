@@ -9,10 +9,6 @@ from tqdm import tqdm
 
 from pointr_detect.Model.pointr import PoinTr
 
-from pointr_detect.Data.average_meter import AverageMeter
-
-from pointr_detect.Dataset.shapenet_55 import ShapeNet55Dataset
-
 from pointr_detect.Method.sample import fps, seprate_point_cloud
 from pointr_detect.Method.move import moveToOrigin, moveToMeanPoint
 from pointr_detect.Method.device import toCuda
@@ -22,8 +18,6 @@ from pointr_detect.Method.render import renderPointArrayWithUnitBBox
 class Detector(object):
 
     def __init__(self, model_file_path=None):
-        self.model_file_path = None
-
         self.model = PoinTr().cuda()
 
         if model_file_path is not None:
@@ -31,7 +25,16 @@ class Detector(object):
         return
 
     def loadModel(self, model_file_path):
-        self.model_file_path = model_file_path
+        if not os.path.exists(model_file_path):
+            print("[WARN][Trainer::loadModel]")
+            print("\t model_file not exist!")
+            return True
+
+        assert os.path.exists(model_file_path)
+
+        model_dict = torch.load(model_file_path)
+        self.model.load_state_dict(model_dict['pointr_model'])
+        return True
 
         if os.path.exists(self.model_file_path):
             print("[INFO][Detector::loadModel]")
@@ -57,7 +60,7 @@ class Detector(object):
 
         data = {'inputs': {}, 'predictions': {}, 'losses': {}, 'logs': {}}
 
-        data['inputs']['point_array'] = torch.tensor(
+        data['inputs']['point_array'] = torch.from_numpy(
             point_array.reshape(1, -1, 3).astype(np.float32)).cuda()
 
         data['inputs']['sample_point_array'] = fps(
@@ -65,49 +68,3 @@ class Detector(object):
 
         data = self.model(data)
         return data
-
-    def detectDataset(self):
-        choice = [
-            torch.Tensor([1, 1, 1]),
-            torch.Tensor([1, 1, -1]),
-            torch.Tensor([1, -1, 1]),
-            torch.Tensor([-1, 1, 1]),
-            torch.Tensor([-1, -1, 1]),
-            torch.Tensor([-1, 1, -1]),
-            torch.Tensor([1, -1, -1]),
-            torch.Tensor([-1, -1, -1])
-        ]
-
-        def worker_init_fn(worker_id):
-            np.random.seed(np.random.get_state()[1][0] + worker_id)
-
-        dataset = ShapeNet55Dataset()
-        dataloader = torch.utils.data.DataLoader(dataset,
-                                                 batch_size=1,
-                                                 shuffle=False,
-                                                 drop_last=False,
-                                                 num_workers=4,
-                                                 worker_init_fn=worker_init_fn)
-
-        for data in tqdm(dataloader):
-            toCuda(data)
-
-            for item in choice:
-                sample_point_array, _ = seprate_point_cloud(
-                    data['inputs']['point_array'], 0.5, item)
-
-                #  points = sample_point_array.cpu().numpy()[0]
-                #  points = moveToOrigin(points).reshape(1, -1, 3)
-                #  sample_point_array = torch.tensor(points).cuda()
-
-                data['inputs']['sample_point_array'] = sample_point_array
-
-                renderPointArrayWithUnitBBox(data['inputs']['point_array'][0])
-                renderPointArrayWithUnitBBox(
-                    data['inputs']['sample_point_array'][0])
-
-                data = self.model(data)
-
-                dense_points = data['predictions']['dense_points']
-                renderPointArrayWithUnitBBox(dense_points[0])
-        return True
