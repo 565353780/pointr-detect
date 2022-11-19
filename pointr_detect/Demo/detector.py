@@ -19,7 +19,10 @@ def demo():
 
     points = np.random.randn(300, 3) - 0.5
     points = moveToOrigin(points)
+    renderPointArrayWithUnitBBox(points)
+
     data = detector.detectPointArray(points)
+
     print(data['predictions'].keys())
     renderPointArrayWithUnitBBox(data['predictions']['dense_points'][0])
     return True
@@ -36,10 +39,14 @@ def demo_mesh():
     assert os.path.exists(shapenet_model_file_path)
     mesh = o3d.io.read_triangle_mesh(shapenet_model_file_path)
     pcd = mesh.sample_points_uniformly(8192)
-    points = np.array(pcd.points).reshape(1, -1, 3)
-    partial, _ = seprate_point_cloud(points, 8192, 4096)
+    points = np.array(pcd.points)
+
+    partial, _ = seprate_point_cloud(points, 0.5)
     partial = moveToOrigin(partial)
+    renderPointArrayWithUnitBBox(partial)
+
     data = detector.detectPointArray(partial)
+
     print(data['predictions'].keys())
     renderPointArrayWithUnitBBox(data['predictions']['dense_points'][0])
     return True
