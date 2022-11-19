@@ -2,16 +2,13 @@
 # -*- coding: utf-8 -*-
 
 import torch
+from pointnet2_ops import pointnet2_utils
 from torch import nn
 
-from pointnet2_ops import pointnet2_utils
-
+from pointr_detect.Lib.chamfer_dist import ChamferDistanceL1
+from pointr_detect.Method.sample import fps
 from pointr_detect.Model.fold import Fold
 from pointr_detect.Model.pc_transformer import PCTransformer
-
-from pointr_detect.Lib.chamfer_dist import ChamferDistanceL1
-
-from pointr_detect.Method.sample import fps
 
 
 class PoinTr(nn.Module):
@@ -40,7 +37,10 @@ class PoinTr(nn.Module):
                                           nn.BatchNorm1d(1024),
                                           nn.LeakyReLU(negative_slope=0.2),
                                           nn.Conv1d(1024, 1024, 1))
+
         self.reduce_map = nn.Linear(self.trans_dim + 1027, self.trans_dim)
+
+        #  self.bbox_decoder = nn.Linear(self.trans_dim + 1027, 8)
 
         self.loss_func = ChamferDistanceL1()
         return
@@ -55,47 +55,56 @@ class PoinTr(nn.Module):
 
     def forward(self, data):
         # Bx#pointx3
-        xyz = data['inputs']['point_array']
+        point_array = data['inputs']['point_array']
 
         # Bx#pointx3 -[base_model]-> BxMxC and BxMx3
-        q, coarse_point_cloud = self.base_model(xyz)
+        q, coarse_point_cloud = self.base_model(point_array)
 
         B, M, C = q.shape
 
         # BxMxC -[transpose]-> BxCxM -[increase_dim]-> Bx1024xM -[transpose]-> BxMx1024
-        global_feature = self.increase_dim(q.transpose(1, 2)).transpose(1, 2)
+        points_feature = self.increase_dim(q.transpose(1, 2)).transpose(1, 2)
 
         # BxMx1024 -[max]-> Bx1024
-        global_feature = torch.max(global_feature, dim=1)[0]
+        global_points_feature = torch.max(points_feature, dim=1)[0]
 
         # Bx1024 -[unsqueeze]-> Bx1x1024 -[expand]-> BxMx1024
-        maxpool_global_feature = global_feature.unsqueeze(-2).expand(-1, M, -1)
+        replicate_global_points_feature = global_points_feature.unsqueeze(
+            -2).expand(-1, M, -1)
 
         # BxMx1024 + BxMxC + BxMx3 -[cat]-> BxMx(C+1027)
-        rebuild_feature = torch.cat(
-            [maxpool_global_feature, q, coarse_point_cloud], dim=-1)
+        global_feature = torch.cat(
+            [replicate_global_points_feature, q, coarse_point_cloud], dim=-1)
 
         # BxMx(C+1027) -[reshape]-> BMx(C+1027) -[reduce_map]-> BMxC
-        rebuild_feature = self.reduce_map(rebuild_feature.reshape(B * M, -1))
+        reduce_global_feature = self.reduce_map(
+            global_feature.reshape(B * M, -1))
 
         # BMxC -[foldingnet]-> BMx3xS -[reshape]-> BxMx3xS
-        relative_xyz = self.foldingnet(rebuild_feature).reshape(B, M, 3, -1)
+        relative_patch_points = self.foldingnet(reduce_global_feature).reshape(
+            B, M, 3, -1)
 
-        # BxMx3xS + BxMx3x1 = BxMx3xS -[transpose]-> BxMxSx3 -[reshape]-> BxMSx3
-        rebuild_points = (relative_xyz +
-                          coarse_point_cloud.unsqueeze(-1)).transpose(
-                              2, 3).reshape(B, -1, 3)
+        # BxMx3xS + BxMx3x1 = BxMx3xS -[transpose]-> BxMxSx3
+        rebuild_patch_points = (relative_patch_points +
+                                coarse_point_cloud.unsqueeze(-1)).transpose(
+                                    2, 3)
+
+        data['predictions']['coarse_point_cloud'] = coarse_point_cloud
+        data['predictions']['rebuild_patch_points'] = rebuild_patch_points
+
+        # BxMxSx3 -[reshape]-> BxMSx3
+        rebuild_points = rebuild_patch_points.reshape(B, -1, 3)
 
         # Bx#pointx3 -[fps]-> BxMx3
-        inp_sparse = fps(xyz, self.num_query)
+        sample_point_array = fps(point_array, self.num_query)
 
         # BxMx3 + BxMx3 -[cat]-> Bx2Mx3
         data['predictions']['coarse_points'] = torch.cat(
-            [coarse_point_cloud, inp_sparse], dim=1).contiguous()
+            [coarse_point_cloud, sample_point_array], dim=1).contiguous()
 
         # BxMSx3 + Bx#pointx3 -[cat]-> Bx(MS+#point)x3
-        data['predictions']['dense_points'] = torch.cat([rebuild_points, xyz],
-                                                        dim=1).contiguous()
+        data['predictions']['dense_points'] = torch.cat(
+            [rebuild_points, point_array], dim=1).contiguous()
 
         if self.training:
             data = self.get_loss(data)

@@ -7,7 +7,7 @@ import open3d as o3d
 
 from pointr_detect.Method.sample import seprate_point_cloud
 from pointr_detect.Method.trans import normalizePointArray, moveToOrigin
-from pointr_detect.Method.render import renderPointArrayWithUnitBBox
+from pointr_detect.Method.render import renderPointArrayWithUnitBBox, renderRebuildPatchPoints
 
 from pointr_detect.Module.detector import Detector
 
@@ -33,6 +33,7 @@ def demo():
 
     print(data['predictions'].keys())
     renderPointArrayWithUnitBBox(data['predictions']['dense_points'][0])
+    renderRebuildPatchPoints(data)
     return True
 
 
@@ -61,4 +62,5 @@ def demo_mesh():
 
     print(data['predictions'].keys())
     renderPointArrayWithUnitBBox(data['predictions']['dense_points'][0])
+    renderRebuildPatchPoints(data)
     return True
