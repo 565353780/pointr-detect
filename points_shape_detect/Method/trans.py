@@ -2,7 +2,10 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
+import open3d as o3d
 from scipy.spatial.transform import Rotation as R
+
+from points_shape_detect.Method.matrix import make_M_from_tqs, decompose_mat4
 
 
 def normalizePointArray(point_array):
@@ -12,9 +15,17 @@ def normalizePointArray(point_array):
     centroid = np.mean([min_point, max_point], axis=0)
 
     point_array = point_array - centroid
-    m = np.max(np.sqrt(np.sum(point_array**2, axis=1)))
-    point_array = point_array / m
+
+    #  m = np.max(np.sqrt(np.sum(point_array**2, axis=1)))
+    #  point_array = point_array / m
+    max_bbox_length = np.max(max_point - min_point)
+    point_array = point_array / max_bbox_length
     return point_array
+
+
+def getQuatFromEulerAngle(euler_angle):
+    r = R.from_euler('zxy', euler_angle, degrees=True)
+    return r.as_quat()
 
 
 def getRotateMatrixFromEulerAngle(euler_angle):
@@ -23,19 +34,34 @@ def getRotateMatrixFromEulerAngle(euler_angle):
     return r.as_matrix()
 
 
-def randomTransPointArray(point_array):
-    point_array = normalizePointArray(point_array)
+def getInverseTrans(translate, quat, scale):
+    trans_matrix = make_M_from_tqs(translate, quat, scale)
+    trans_matrix_inv = np.linalg.inv(trans_matrix)
+    translate_inv, quat_inv, scale_inv = decompose_mat4(trans_matrix_inv)
+    return translate_inv, quat_inv, scale_inv
 
-    random_euler_angle = (np.random.rand(3) - 0.5) * 360.0
-    rotate_matrix = getRotateMatrixFromEulerAngle(random_euler_angle)
-    point_array = point_array @ rotate_matrix
 
-    random_scale = np.random.rand() + 0.5
-    point_array = point_array * random_scale
+def transPointArray(point_array, translate, quat, scale):
+    trans_matrix = make_M_from_tqs(translate, quat, scale)
 
-    random_translate = np.random.rand(3) - 0.5
-    point_array = point_array + random_translate
-    return point_array
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(point_array)
+    pcd.transform(trans_matrix)
+
+    trans_point_array = np.array(pcd.points)
+    return trans_point_array
+
+
+def randomTransPointArray(point_array, need_trans=False):
+    translate = np.random.rand(3) - 0.5
+    euler_angle = (np.random.rand(3) - 0.5) * 360.0
+    scale = np.random.rand(3) + 0.5
+
+    quat = getQuatFromEulerAngle(euler_angle)
+    trans_point_array = transPointArray(point_array, translate, quat, scale)
+    if need_trans:
+        return trans_point_array, translate, quat, scale
+    return trans_point_array
 
 
 def moveToOrigin(point_array):
