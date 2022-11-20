@@ -60,11 +60,11 @@ class PointsShapeNet(nn.Module):
 
     def encodePoints(self, data):
         # Bx#pointx3
-        sample_point_array = data['inputs']['sample_point_array']
+        query_point_array = data['inputs']['query_point_array']
 
         # Bx#pointx3 -[feature_encoder]-> BxMxC and BxMx3
         encode_feature, coarse_point_cloud = self.feature_encoder(
-            sample_point_array)
+            query_point_array)
 
         data['predictions']['encode_feature'] = encode_feature
         data['predictions']['coarse_point_cloud'] = coarse_point_cloud
@@ -176,21 +176,21 @@ class PointsShapeNet(nn.Module):
 
     def embedPoints(self, data):
         # Bx#pointx3
-        sample_point_array = data['inputs']['sample_point_array']
+        query_point_array = data['inputs']['query_point_array']
         # BxMx3
         coarse_point_cloud = data['predictions']['coarse_point_cloud']
         # BxMSx3
         rebuild_points = data['predictions']['rebuild_points']
 
         # Bx#pointx3 -[fps]-> BxMx3
-        fps_sample_point_array = fps(sample_point_array, self.num_query)
+        fps_query_point_array = fps(query_point_array, self.num_query)
 
         # BxMx3 + BxMx3 -[cat]-> Bx2Mx3
-        coarse_points = torch.cat([coarse_point_cloud, fps_sample_point_array],
+        coarse_points = torch.cat([coarse_point_cloud, fps_query_point_array],
                                   dim=1).contiguous()
 
         # BxMSx3 + Bx#pointx3 -[cat]-> Bx(MS+#point)x3
-        dense_points = torch.cat([rebuild_points, sample_point_array],
+        dense_points = torch.cat([rebuild_points, query_point_array],
                                  dim=1).contiguous()
 
         data['predictions']['coarse_points'] = coarse_points
