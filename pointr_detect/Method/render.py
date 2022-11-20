@@ -6,18 +6,29 @@ import numpy as np
 import open3d as o3d
 from random import randint
 
-from pointr_detect.Method.bbox import getOpen3DBBox
+from pointr_detect.Data.bbox import BBox
+
+from pointr_detect.Method.bbox import getOpen3DBBox, getOpen3DBBoxFromBBox
+
+
+def getPCDFromPointArray(point_array, color=None):
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(point_array)
+
+    if color is not None:
+        colors = np.array([color for _ in range(point_array.shape[0])],
+                          dtype=float) / 255.0
+        pcd.colors = o3d.utility.Vector3dVector(colors)
+    return pcd
 
 
 def renderPointArrayWithUnitBBox(point_array):
     unit_bbox = getOpen3DBBox()
 
-    pcd = o3d.geometry.PointCloud()
     if isinstance(point_array, np.ndarray):
-        pcd.points = o3d.utility.Vector3dVector(point_array)
-    elif isinstance(point_array, torch.Tensor):
-        pcd.points = o3d.utility.Vector3dVector(
-            point_array.detach().cpu().numpy())
+        pcd = getPCDFromPointArray(point_array)
+    else:
+        pcd = getPCDFromPointArray(point_array.detach().cpu().numpy())
 
     o3d.visualization.draw_geometries([unit_bbox, pcd])
     return True
@@ -57,4 +68,51 @@ def renderRebuildPatchPoints(data):
     pcd.points = o3d.utility.Vector3dVector(all_points)
     pcd.colors = o3d.utility.Vector3dVector(all_colors)
     o3d.visualization.draw_geometries([pcd])
+    return True
+
+
+def renderPredictBBox(data):
+    if 'bbox' not in data['predictions'].keys():
+        print("[ERROR][render::renderPredictBBox]")
+        print("\t please save bbox during model running!")
+        return False
+    if 'center' not in data['predictions'].keys():
+        print("[ERROR][render::renderPredictBBox]")
+        print("\t please save center during model running!")
+        return False
+    if 'dense_points' not in data['predictions'].keys():
+        print("[ERROR][render::renderPredictBBox]")
+        print("\t please save dense_points during model running!")
+        return False
+
+    pcd_list = []
+
+    if 'bbox' in data['inputs'].keys():
+        gt_bbox_list = data['inputs']['bbox'][0].cpu().numpy().reshape(2, 3)
+        gt_bbox = BBox.fromList(gt_bbox_list)
+        open3d_gt_bbox = getOpen3DBBoxFromBBox(gt_bbox, [0, 255, 0])
+        pcd_list.append(open3d_gt_bbox)
+
+    if 'center' in data['inputs'].keys():
+        gt_center = data['inputs']['center'][0].cpu().numpy().reshape(1, 3)
+        gt_center_pcd = getPCDFromPointArray(gt_center, [0, 255, 0])
+        pcd_list.append(gt_center_pcd)
+
+    dense_points = data['predictions']['dense_points'][0].detach().cpu().numpy(
+    )
+    dense_points_pcd = getPCDFromPointArray(dense_points, [0, 0, 255])
+    pcd_list.append(dense_points_pcd)
+
+    bbox_list = data['predictions']['bbox'][0].detach().cpu().numpy().reshape(
+        2, 3)
+    bbox = BBox.fromList(bbox_list)
+    open3d_bbox = getOpen3DBBoxFromBBox(bbox, [255, 0, 0])
+    pcd_list.append(open3d_bbox)
+
+    center = data['predictions']['center'][0].detach().cpu().numpy().reshape(
+        1, 3)
+    center_pcd = getPCDFromPointArray(center, [255, 0, 0])
+    pcd_list.append(center_pcd)
+
+    o3d.visualization.draw_geometries(pcd_list)
     return True
