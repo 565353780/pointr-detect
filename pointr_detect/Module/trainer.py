@@ -24,7 +24,9 @@ from pointr_detect.Method.sample import seprate_point_cloud
 from pointr_detect.Method.trans import moveToOrigin, moveToMeanPoint
 from pointr_detect.Method.device import toCuda
 from pointr_detect.Method.path import createFileFolder, renameFile, removeFile
-from pointr_detect.Method.render import renderPointArrayWithUnitBBox
+from pointr_detect.Method.render import \
+    renderPointArrayWithUnitBBox, \
+    renderPredictBBox
 
 
 def worker_init_fn(worker_id):
@@ -67,7 +69,7 @@ class Trainer(object):
         bnm_lambda = lambda e: max(
             self.bn_momentum * self.bn_decay**
             (e / self.bn_decay_step), self.bn_lowest_decay)
-        self.bnscheduler = BNMomentumScheduler(self.model, bnm_lambda)
+        self.bn_scheduler = BNMomentumScheduler(self.model, bnm_lambda)
         self.summary_writer = None
         return
 
@@ -120,15 +122,13 @@ class Trainer(object):
         return True
 
     def testTrain(self):
+        self.model.eval()
+
         for data in tqdm(self.dataloader):
             toCuda(data)
 
             sample_point_array, _ = seprate_point_cloud(
                 data['inputs']['point_array'], [0.25, 0.75])
-
-            #  points = sample_point_array.cpu().numpy()[0]
-            #  points = moveToOrigin(points).reshape(1, -1, 3)
-            #  sample_point_array = torch.tensor(points).cuda()
 
             data['inputs']['sample_point_array'] = sample_point_array
 
@@ -140,7 +140,8 @@ class Trainer(object):
 
             print(data['predictions'].keys())
             dense_points = data['predictions']['dense_points']
-            #  renderPointArrayWithUnitBBox(dense_points[0])
+            renderPointArrayWithUnitBBox(dense_points[0])
+            renderPredictBBox(data)
         return True
 
     def trainStep(self, data):
@@ -148,10 +149,6 @@ class Trainer(object):
 
         sample_point_array, _ = seprate_point_cloud(
             data['inputs']['point_array'], [0.25, 0.75])
-
-        #  points = sample_point_array.cpu().numpy()[0]
-        #  points = moveToOrigin(points).reshape(1, -1, 3)
-        #  sample_point_array = torch.tensor(points).cuda()
 
         data['inputs']['sample_point_array'] = sample_point_array
 
