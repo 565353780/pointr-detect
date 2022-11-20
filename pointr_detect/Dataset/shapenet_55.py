@@ -8,7 +8,7 @@ import torch.utils.data as data
 
 from pointr_detect.Data.io import IO
 
-from pointr_detect.Method.trans import normalizePointArray, randomTransPointArray
+from pointr_detect.Method.trans import randomTransPointArray
 
 
 class ShapeNet55Dataset(data.Dataset):
