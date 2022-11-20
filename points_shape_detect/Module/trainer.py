@@ -191,6 +191,11 @@ class Trainer(object):
             print("\t start training, epoch : " + str(self.epoch + 1) + "/" +
                   str(total_epoch) + "...")
 
+            self.summary_writer.add_scalar(
+                "Lr/lr",
+                self.optimizer.state_dict()['param_groups'][0]['lr'],
+                self.step)
+
             for_data = self.dataloader
             if print_progress:
                 for_data = tqdm(for_data)
