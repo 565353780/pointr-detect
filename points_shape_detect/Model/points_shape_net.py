@@ -54,6 +54,14 @@ class PointsShapeNet(nn.Module):
                                             nn.LeakyReLU(negative_slope=0.2),
                                             nn.Conv1d(3, 3, 1))
 
+        self.quat_decoder = nn.Sequential(nn.Conv1d(self.trans_dim, 4, 1),
+                                          nn.LeakyReLU(negative_slope=0.2),
+                                          nn.Conv1d(4, 4, 1))
+
+        self.scale_decoder = nn.Sequential(nn.Conv1d(self.trans_dim, 3, 1),
+                                           nn.LeakyReLU(negative_slope=0.2),
+                                           nn.Conv1d(3, 3, 1))
+
         self.loss_func = ChamferDistanceL1()
         self.l1_loss = nn.SmoothL1Loss()
         return
@@ -105,16 +113,24 @@ class PointsShapeNet(nn.Module):
     def lossBBox(self, data):
         bbox = data['predictions']['bbox']
         center = data['predictions']['center']
+        quat_inv = data['predictions']['quat_inv']
+        scale_inv = data['predictions']['scale_inv']
         gt_bbox = data['inputs']['bbox']
         gt_center = data['inputs']['center']
+        gt_quat_inv = data['inputs']['quat_inv']
+        gt_scale_inv = data['inputs']['scale_inv']
 
         loss_bbox_l1 = self.l1_loss(bbox, gt_bbox)
         loss_center_l1 = self.l1_loss(center, gt_center)
         loss_bbox_eiou = torch.mean(IoULoss.EIoU(bbox, gt_bbox))
+        loss_quat_inv_l1 = self.l1_loss(quat_inv, gt_quat_inv)
+        loss_scale_inv_l1 = self.l1_loss(scale_inv, gt_scale_inv)
 
         data['losses']['loss_bbox_l1'] = loss_bbox_l1 * 1000
         data['losses']['loss_center_l1'] = loss_center_l1 * 1000
         data['losses']['loss_bbox_eiou'] = loss_bbox_eiou
+        data['losses']['loss_quat_inv_l1'] = loss_quat_inv_l1 * 1000
+        data['losses']['loss_scale_inv_l1'] = loss_scale_inv_l1 * 1000
         return data
 
     def encodeBBox(self, data):
@@ -133,8 +149,16 @@ class PointsShapeNet(nn.Module):
         # BxCx1 -[center_decoder]-> Bx3x1 -[reshape]-> Bx3
         center = self.center_decoder(bbox_feature).reshape(B, -1)
 
+        # BxCx1 -[quat_decoder]-> Bx4x1 -[reshape]-> Bx4
+        quat_inv = self.quat_decoder(bbox_feature).reshape(B, -1)
+
+        # BxCx1 -[scale_decoder]-> Bx3x1 -[reshape]-> Bx3
+        scale_inv = self.scale_decoder(bbox_feature).reshape(B, -1)
+
         data['predictions']['bbox'] = bbox
         data['predictions']['center'] = center
+        data['predictions']['quat_inv'] = quat_inv
+        data['predictions']['scale_inv'] = scale_inv
 
         if self.training:
             data = self.lossBBox(data)
@@ -164,7 +188,7 @@ class PointsShapeNet(nn.Module):
         data['predictions']['rebuild_points'] = rebuild_points
         return data
 
-    def get_loss(self, data):
+    def lossComplete(self, data):
         loss_coarse = self.loss_func(data['predictions']['coarse_points'],
                                      data['inputs']['point_array'])
         loss_fine = self.loss_func(data['predictions']['dense_points'],
@@ -197,7 +221,7 @@ class PointsShapeNet(nn.Module):
         data['predictions']['dense_points'] = dense_points
 
         if self.training:
-            data = self.get_loss(data)
+            data = self.lossComplete(data)
         return data
 
     def forward(self, data):
