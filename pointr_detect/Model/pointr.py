@@ -10,7 +10,7 @@ from pointr_detect.Method.sample import fps
 from pointr_detect.Model.fold import Fold
 from pointr_detect.Model.pc_transformer import PCTransformer
 
-from pointr_detect.Loss.ious import EIoU
+from pointr_detect.Loss.ious import IoULoss
 
 
 class PoinTr(nn.Module):
@@ -70,12 +70,8 @@ class PoinTr(nn.Module):
         loss_center_l1 = self.l1_loss(data['predictions']['center'],
                                       data['inputs']['center'])
 
-        loss_bbox_eious = torch.cat([
-            (1.0 - EIoU(data['predictions']['bbox'][i],
-                        data['inputs']['bbox'][i])).reshape(1)
-            for i in range(data['inputs']['bbox'].shape[0])
-        ])
-        loss_bbox_eiou = torch.mean(loss_bbox_eious)
+        loss_bbox_eiou = torch.mean(
+            IoULoss.EIoU(data['predictions']['bbox'], data['inputs']['bbox']))
 
         data['losses']['loss_coarse'] = loss_coarse * 1000
         data['losses']['loss_fine'] = loss_fine * 1000
