@@ -5,7 +5,8 @@ from pointr_detect.Module.trainer import Trainer
 
 
 def demo():
-    model_file_path = "./output/test/model_best.pth"
+    model_file_path = "./output/20221120_17:29:10/model_best.pth"
+    model_file_path = ""
     print_progress = True
 
     trainer = Trainer()
