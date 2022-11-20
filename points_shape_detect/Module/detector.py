@@ -7,7 +7,7 @@ import numpy as np
 import open3d as o3d
 from tqdm import tqdm
 
-from points_shape_detect.Model.point_shape_net import PointShapeNet
+from points_shape_detect.Model.points_shape_net import PointsShapeNet
 
 from points_shape_detect.Method.sample import fps
 from points_shape_detect.Method.device import toCuda
@@ -16,7 +16,7 @@ from points_shape_detect.Method.device import toCuda
 class Detector(object):
 
     def __init__(self, model_file_path=None):
-        self.model = PointShapeNet().cuda()
+        self.model = PointsShapeNet().cuda()
 
         if model_file_path is not None:
             self.loadModel(model_file_path)

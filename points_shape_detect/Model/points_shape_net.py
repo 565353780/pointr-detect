@@ -13,7 +13,7 @@ from points_shape_detect.Model.pc_transformer import PCTransformer
 from points_shape_detect.Loss.ious import IoULoss
 
 
-class PointShapeNet(nn.Module):
+class PointsShapeNet(nn.Module):
 
     def __init__(self):
         super().__init__()

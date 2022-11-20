@@ -1,4 +1,4 @@
-# Point Shape Detect
+# Points Shape Detect
 
 ## Install
 

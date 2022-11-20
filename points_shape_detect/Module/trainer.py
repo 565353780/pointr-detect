@@ -11,7 +11,7 @@ from torch.optim.lr_scheduler import LambdaLR
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
-from points_shape_detect.Model.point_shape_net import PointShapeNet
+from points_shape_detect.Model.points_shape_net import PointsShapeNet
 
 from points_shape_detect.Dataset.shapenet_55 import ShapeNet55Dataset
 
@@ -34,7 +34,7 @@ def worker_init_fn(worker_id):
 class Trainer(object):
 
     def __init__(self):
-        self.model = PointShapeNet().cuda()
+        self.model = PointsShapeNet().cuda()
 
         self.dataset = ShapeNet55Dataset()
         self.dataloader = DataLoader(self.dataset,
