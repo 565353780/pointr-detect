@@ -13,7 +13,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from points_shape_detect.Model.points_shape_net import PointsShapeNet
 
-from points_shape_detect.Dataset.shapenet_55 import ShapeNet55Dataset
+from points_shape_detect.Dataset.cad_dataset import CADDataset
 
 from points_shape_detect.Scheduler.bn_momentum import BNMomentumScheduler
 
@@ -36,7 +36,7 @@ class Trainer(object):
     def __init__(self):
         self.model = PointsShapeNet().cuda()
 
-        self.dataset = ShapeNet55Dataset()
+        self.dataset = CADDataset()
         self.dataloader = DataLoader(self.dataset,
                                      batch_size=24,
                                      shuffle=False,
