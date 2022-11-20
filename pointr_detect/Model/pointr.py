@@ -10,6 +10,8 @@ from pointr_detect.Method.sample import fps
 from pointr_detect.Model.fold import Fold
 from pointr_detect.Model.pc_transformer import PCTransformer
 
+from pointr_detect.Loss.ious import EIoU
+
 
 class PoinTr(nn.Module):
 
@@ -54,7 +56,7 @@ class PoinTr(nn.Module):
                                             nn.Conv1d(3, 3, 1))
 
         self.loss_func = ChamferDistanceL1()
-        self.bbox_loss = nn.SmoothL1Loss()
+        self.l1_loss = nn.SmoothL1Loss()
         return
 
     def get_loss(self, data):
@@ -63,15 +65,23 @@ class PoinTr(nn.Module):
         loss_fine = self.loss_func(data['predictions']['dense_points'],
                                    data['inputs']['point_array'])
 
-        loss_bbox = self.bbox_loss(data['predictions']['bbox'],
-                                   data['inputs']['bbox'])
-        loss_center = self.bbox_loss(data['predictions']['center'],
-                                     data['inputs']['center'])
+        loss_bbox_l1 = self.l1_loss(data['predictions']['bbox'],
+                                    data['inputs']['bbox'])
+        loss_center_l1 = self.l1_loss(data['predictions']['center'],
+                                      data['inputs']['center'])
 
-        data['losses']['loss_coarse'] = loss_coarse
-        data['losses']['loss_fine'] = loss_fine
-        data['losses']['loss_bbox'] = loss_bbox * 0.1
-        data['losses']['loss_center'] = loss_center * 0.1
+        loss_bbox_eious = torch.cat([
+            (1.0 - EIoU(data['predictions']['bbox'][i],
+                        data['inputs']['bbox'][i])).reshape(1)
+            for i in range(data['inputs']['bbox'].shape[0])
+        ])
+        loss_bbox_eiou = torch.mean(loss_bbox_eious)
+
+        data['losses']['loss_coarse'] = loss_coarse * 1000
+        data['losses']['loss_fine'] = loss_fine * 1000
+        data['losses']['loss_bbox_l1'] = loss_bbox_l1 * 1000
+        data['losses']['loss_center_l1'] = loss_center_l1 * 1000
+        data['losses']['loss_bbox_eiou'] = loss_bbox_eiou * 1000
         return data
 
     def forward(self, data):
@@ -136,6 +146,7 @@ class PoinTr(nn.Module):
 
         data['predictions']['coarse_point_cloud'] = coarse_point_cloud
         data['predictions']['rebuild_patch_points'] = rebuild_patch_points
+        data['predictions']['rebuild_points'] = rebuild_points
         data['predictions']['coarse_points'] = coarse_points
         data['predictions']['dense_points'] = dense_points
         data['predictions']['bbox'] = bbox
