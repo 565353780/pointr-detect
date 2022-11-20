@@ -81,7 +81,7 @@ class PoinTr(nn.Module):
         data['losses']['loss_fine'] = loss_fine * 1000
         data['losses']['loss_bbox_l1'] = loss_bbox_l1 * 1000
         data['losses']['loss_center_l1'] = loss_center_l1 * 1000
-        data['losses']['loss_bbox_eiou'] = loss_bbox_eiou * 1000
+        data['losses']['loss_bbox_eiou'] = loss_bbox_eiou * 10
         return data
 
     def forward(self, data):
