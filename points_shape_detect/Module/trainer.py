@@ -38,7 +38,7 @@ class Trainer(object):
 
         self.dataset = ShapeNet55Dataset()
         self.dataloader = DataLoader(self.dataset,
-                                     batch_size=16,
+                                     batch_size=24,
                                      shuffle=False,
                                      drop_last=False,
                                      num_workers=24,
@@ -56,7 +56,6 @@ class Trainer(object):
         self.step = 0
         self.loss_min = float('inf')
         self.log_folder_name = getCurrentTime()
-        self.epoch = 0
 
         self.optimizer = AdamW(self.model.parameters(),
                                lr=self.lr,
@@ -90,7 +89,6 @@ class Trainer(object):
         self.step = model_dict['step']
         self.loss_min = model_dict['loss_min']
         self.log_folder_name = model_dict['log_folder_name']
-        self.epoch = model_dict['epoch']
 
         self.loadSummaryWriter()
         print("[INFO][Trainer::loadModel]")
@@ -105,7 +103,6 @@ class Trainer(object):
             'step': self.step,
             'loss_min': self.loss_min,
             'log_folder_name': self.log_folder_name,
-            'epoch': self.epoch
         }
 
         createFileFolder(save_model_file_path)
@@ -125,14 +122,14 @@ class Trainer(object):
         for data in tqdm(self.dataloader):
             toCuda(data)
 
-            sample_point_array, _ = seprate_point_cloud(
+            query_point_array, _ = seprate_point_cloud(
                 data['inputs']['point_array'], [0.25, 0.75])
 
-            data['inputs']['sample_point_array'] = sample_point_array
+            data['inputs']['query_point_array'] = query_point_array
 
             renderPointArrayWithUnitBBox(data['inputs']['point_array'][0])
             renderPointArrayWithUnitBBox(
-                data['inputs']['sample_point_array'][0])
+                data['inputs']['query_point_array'][0])
 
             data = self.model(data)
 
@@ -145,10 +142,10 @@ class Trainer(object):
     def trainStep(self, data):
         toCuda(data)
 
-        sample_point_array, _ = seprate_point_cloud(
+        query_point_array, _ = seprate_point_cloud(
             data['inputs']['point_array'], [0.25, 0.75])
 
-        data['inputs']['sample_point_array'] = sample_point_array
+        data['inputs']['query_point_array'] = query_point_array
 
         self.model.train()
         self.model.zero_grad()
@@ -186,9 +183,9 @@ class Trainer(object):
     def train(self, print_progress=False):
         total_epoch = 10000000
 
-        while self.epoch < total_epoch:
+        for epoch in range(total_epoch):
             print("[INFO][Trainer::train]")
-            print("\t start training, epoch : " + str(self.epoch + 1) + "/" +
+            print("\t start training, epoch : " + str(epoch + 1) + "/" +
                   str(total_epoch) + "...")
 
             self.summary_writer.add_scalar(
@@ -203,10 +200,8 @@ class Trainer(object):
                 self.trainStep(data)
                 self.step += 1
 
-            self.epoch += 1
-
-            self.scheduler.step(self.epoch)
-            self.bn_scheduler.step(self.epoch)
+            self.scheduler.step()
+            self.bn_scheduler.step()
 
             self.saveModel("./output/" + self.log_folder_name +
                            "/model_last.pth")
