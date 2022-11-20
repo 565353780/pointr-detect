@@ -6,9 +6,9 @@ import numpy as np
 import open3d as o3d
 from random import randint
 
-from pointr_detect.Data.bbox import BBox
+from points_shape_detect.Data.bbox import BBox
 
-from pointr_detect.Method.bbox import getOpen3DBBox, getOpen3DBBoxFromBBox
+from points_shape_detect.Method.bbox import getOpen3DBBox, getOpen3DBBoxFromBBox
 
 
 def getPCDFromPointArray(point_array, color=None):

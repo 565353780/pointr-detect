@@ -9,7 +9,7 @@ from knn_cuda import KNN
 
 from timm.models.layers import DropPath, trunc_normal_
 
-from pointr_detect.Model.dgcnn_group import DGCNN_Grouper
+from points_shape_detect.Model.dgcnn_group import DGCNN_Grouper
 
 knn = KNN(k=8, transpose_mode=False)
 

@@ -5,15 +5,15 @@ import torch
 from pointnet2_ops import pointnet2_utils
 from torch import nn
 
-from pointr_detect.Lib.chamfer_dist import ChamferDistanceL1
-from pointr_detect.Method.sample import fps
-from pointr_detect.Model.fold import Fold
-from pointr_detect.Model.pc_transformer import PCTransformer
+from points_shape_detect.Lib.chamfer_dist import ChamferDistanceL1
+from points_shape_detect.Method.sample import fps
+from points_shape_detect.Model.fold import Fold
+from points_shape_detect.Model.pc_transformer import PCTransformer
 
-from pointr_detect.Loss.ious import IoULoss
+from points_shape_detect.Loss.ious import IoULoss
 
 
-class PoinTr(nn.Module):
+class PointShapeNet(nn.Module):
 
     def __init__(self):
         super().__init__()

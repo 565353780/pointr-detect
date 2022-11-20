@@ -4,7 +4,7 @@
 import torch
 import numpy as np
 
-from pointr_detect.Loss.ious import IoULoss
+from points_shape_detect.Loss.ious import IoULoss
 
 
 def testArray(print_progress=False):

@@ -3,7 +3,7 @@
 
 from copy import deepcopy
 
-from pointr_detect.Data.point import Point
+from points_shape_detect.Data.point import Point
 
 inf = float("inf")
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from pointr_detect.Module.trainer import Trainer
+from points_shape_detect.Module.trainer import Trainer
 
 
 def demo():

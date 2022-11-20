@@ -7,16 +7,16 @@ import numpy as np
 import open3d as o3d
 from tqdm import tqdm
 
-from pointr_detect.Model.pointr import PoinTr
+from points_shape_detect.Model.point_shape_net import PointShapeNet
 
-from pointr_detect.Method.sample import fps
-from pointr_detect.Method.device import toCuda
+from points_shape_detect.Method.sample import fps
+from points_shape_detect.Method.device import toCuda
 
 
 class Detector(object):
 
     def __init__(self, model_file_path=None):
-        self.model = PoinTr().cuda()
+        self.model = PointShapeNet().cuda()
 
         if model_file_path is not None:
             self.loadModel(model_file_path)
@@ -29,7 +29,7 @@ class Detector(object):
         print("\t start loading model from :")
         print("\t", model_file_path)
         model_dict = torch.load(model_file_path)
-        self.model.load_state_dict(model_dict['pointr_model'])
+        self.model.load_state_dict(model_dict['model'])
         return True
 
     def detectPointArray(self, point_array):

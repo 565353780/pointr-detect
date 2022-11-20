@@ -3,11 +3,11 @@
 
 import torch
 
-from pointr_detect.Loss.iou.ciou import CIoU
-from pointr_detect.Loss.iou.diou import DIoU
-from pointr_detect.Loss.iou.eiou import EIoU
-from pointr_detect.Loss.iou.giou import GIoU
-from pointr_detect.Loss.iou.iou import IoU
+from points_shape_detect.Loss.iou.ciou import CIoU
+from points_shape_detect.Loss.iou.diou import DIoU
+from points_shape_detect.Loss.iou.eiou import EIoU
+from points_shape_detect.Loss.iou.giou import GIoU
+from points_shape_detect.Loss.iou.iou import IoU
 
 
 def checkShape(tensor1, tensor2):

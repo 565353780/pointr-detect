@@ -11,20 +11,18 @@ from torch.optim.lr_scheduler import LambdaLR
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
-from pointr_detect.Model.pointr import PoinTr
+from points_shape_detect.Model.point_shape_net import PointShapeNet
 
-from pointr_detect.Data.average_meter import AverageMeter
+from points_shape_detect.Dataset.shapenet_55 import ShapeNet55Dataset
 
-from pointr_detect.Dataset.shapenet_55 import ShapeNet55Dataset
+from points_shape_detect.Scheduler.bn_momentum import BNMomentumScheduler
 
-from pointr_detect.Scheduler.bn_momentum import BNMomentumScheduler
-
-from pointr_detect.Method.time import getCurrentTime
-from pointr_detect.Method.sample import seprate_point_cloud
-from pointr_detect.Method.trans import moveToOrigin, moveToMeanPoint
-from pointr_detect.Method.device import toCuda
-from pointr_detect.Method.path import createFileFolder, renameFile, removeFile
-from pointr_detect.Method.render import \
+from points_shape_detect.Method.time import getCurrentTime
+from points_shape_detect.Method.sample import seprate_point_cloud
+from points_shape_detect.Method.trans import moveToOrigin, moveToMeanPoint
+from points_shape_detect.Method.device import toCuda
+from points_shape_detect.Method.path import createFileFolder, renameFile, removeFile
+from points_shape_detect.Method.render import \
     renderPointArrayWithUnitBBox, \
     renderPredictBBox
 
@@ -36,7 +34,7 @@ def worker_init_fn(worker_id):
 class Trainer(object):
 
     def __init__(self):
-        self.model = PoinTr().cuda()
+        self.model = PointShapeNet().cuda()
 
         self.dataset = ShapeNet55Dataset()
         self.dataloader = DataLoader(self.dataset,
@@ -87,7 +85,7 @@ class Trainer(object):
 
         model_dict = torch.load(model_file_path)
 
-        self.model.load_state_dict(model_dict['pointr_model'])
+        self.model.load_state_dict(model_dict['model'])
         self.optimizer.load_state_dict(model_dict['optimizer'])
         self.step = model_dict['step']
         self.loss_min = model_dict['loss_min']
@@ -102,7 +100,7 @@ class Trainer(object):
 
     def saveModel(self, save_model_file_path):
         model_dict = {
-            'pointr_model': self.model.state_dict(),
+            'model': self.model.state_dict(),
             'optimizer': self.optimizer.state_dict(),
             'step': self.step,
             'loss_min': self.loss_min,

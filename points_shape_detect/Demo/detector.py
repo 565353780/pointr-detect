@@ -5,14 +5,14 @@ import os
 import numpy as np
 import open3d as o3d
 
-from pointr_detect.Method.sample import seprate_point_cloud
-from pointr_detect.Method.trans import normalizePointArray, moveToOrigin
-from pointr_detect.Method.render import \
+from points_shape_detect.Method.sample import seprate_point_cloud
+from points_shape_detect.Method.trans import normalizePointArray, moveToOrigin
+from points_shape_detect.Method.render import \
     renderPointArrayWithUnitBBox, \
     renderRebuildPatchPoints, \
     renderPredictBBox
 
-from pointr_detect.Module.detector import Detector
+from points_shape_detect.Module.detector import Detector
 
 
 def demo():

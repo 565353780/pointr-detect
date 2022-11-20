@@ -4,10 +4,10 @@
 import numpy as np
 import open3d as o3d
 
-from pointr_detect.Config.bbox import POINTS, LINES, COLORS
+from points_shape_detect.Config.bbox import POINTS, LINES, COLORS
 
-from pointr_detect.Data.point import Point
-from pointr_detect.Data.bbox import BBox
+from points_shape_detect.Data.point import Point
+from points_shape_detect.Data.bbox import BBox
 
 
 def getBBoxPointList(bbox):

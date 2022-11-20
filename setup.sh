@@ -10,6 +10,6 @@ pip install \
 pip install --upgrade \
   https://github.com/unlimblue/KNN_CUDA/releases/download/0.2/KNN_CUDA-0.2-py3-none-any.whl
 
-cd ./pointr_detect/Lib/chamfer_dist
+cd ./point_shape_detect/Lib/chamfer_dist
 python setup.py install --user
 

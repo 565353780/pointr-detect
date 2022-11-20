@@ -6,9 +6,7 @@ import torch
 import numpy as np
 import torch.utils.data as data
 
-from pointr_detect.Data.io import IO
-
-from pointr_detect.Method.trans import randomTransPointArray
+from points_shape_detect.Method.trans import randomTransPointArray
 
 
 class ShapeNet55Dataset(data.Dataset):
@@ -44,7 +42,7 @@ class ShapeNet55Dataset(data.Dataset):
         data['inputs']['taxonomy_id'] = sample['taxonomy_id']
         data['inputs']['model_id'] = sample['model_id']
 
-        point_array = IO.get(os.path.join(
+        point_array = np.load(os.path.join(
             self.pc_path, sample['file_path'])).astype(np.float32)
         point_array = randomTransPointArray(point_array)
 

@@ -1,10 +1,10 @@
-# PoinTr Detect
+# Point Shape Detect
 
 ## Install
 
 ```bash
-conda create -n pointr python=3.8
-conda activate pointr
+conda create -n psd python=3.8
+conda activate psd
 ./setup.sh
 ```
 
