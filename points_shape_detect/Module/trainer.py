@@ -2,29 +2,28 @@
 # -*- coding: utf-8 -*-
 
 import os
-import torch
+
 import numpy as np
 import open3d as o3d
-from tqdm import tqdm
+import torch
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import LambdaLR
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-
-from points_shape_detect.Model.points_shape_net import PointsShapeNet
+from tqdm import tqdm
 
 from points_shape_detect.Dataset.cad_dataset import CADDataset
-
-from points_shape_detect.Scheduler.bn_momentum import BNMomentumScheduler
-
-from points_shape_detect.Method.time import getCurrentTime
-from points_shape_detect.Method.sample import seprate_point_cloud
-from points_shape_detect.Method.trans import moveToOrigin, moveToMeanPoint
 from points_shape_detect.Method.device import toCuda
-from points_shape_detect.Method.path import createFileFolder, renameFile, removeFile
-from points_shape_detect.Method.render import \
-    renderPointArrayWithUnitBBox, \
-    renderPredictBBox
+from points_shape_detect.Method.path import (createFileFolder, removeFile,
+                                             renameFile)
+from points_shape_detect.Method.render import (renderPointArray,
+                                               renderPointArrayList,
+                                               renderPredictBBox)
+from points_shape_detect.Method.sample import seprate_point_cloud
+from points_shape_detect.Method.time import getCurrentTime
+from points_shape_detect.Method.trans import getInverseTrans, transPointArray
+from points_shape_detect.Model.points_shape_net import PointsShapeNet
+from points_shape_detect.Scheduler.bn_momentum import BNMomentumScheduler
 
 
 def worker_init_fn(worker_id):
@@ -116,36 +115,82 @@ class Trainer(object):
         renameFile(tmp_save_model_file_path, save_model_file_path)
         return True
 
+    def preProcessData(self, data):
+        point_array = data['inputs']['point_array']
+
+        query_point_array, _ = seprate_point_cloud(point_array, [0.25, 0.75])
+
+        translate = torch.tensor([0.0, 0.0, 0.0]).to(torch.float32).cuda()
+
+        trans_points_list = []
+        trans_query_points_list = []
+        euler_angle_inv_list = []
+        scale_inv_list = []
+
+        for i in range(point_array.shape[0]):
+            points = point_array[i]
+            query_points = query_point_array[i]
+            query_points_center = torch.mean(query_points, 0)
+            euler_angle = ((torch.rand(3) - 0.5) * 360.0).cuda()
+            scale = (torch.rand(3) + 0.5).cuda()
+
+            trans_points = transPointArray(points,
+                                           translate,
+                                           euler_angle,
+                                           scale,
+                                           center=query_points_center)
+            trans_query_points = transPointArray(query_points, translate,
+                                                 euler_angle, scale)
+            _, euler_angle_inv, scale_inv = getInverseTrans(
+                translate, euler_angle, scale)
+
+            trans_points_list.append(trans_points.unsqueeze(0))
+            trans_query_points_list.append(trans_query_points.unsqueeze(0))
+            euler_angle_inv_list.append(euler_angle_inv.unsqueeze(0))
+            scale_inv_list.append(scale_inv.unsqueeze(0))
+
+        trans_point_array = torch.cat(trans_points_list)
+        trans_query_point_array = torch.cat(trans_query_points_list)
+        euler_angle_inv = torch.cat(euler_angle_inv_list)
+        scale_inv = torch.cat(scale_inv_list)
+
+        data['inputs']['trans_point_array'] = trans_point_array
+        data['inputs']['trans_query_point_array'] = trans_query_point_array
+        data['inputs']['euler_angle_inv'] = euler_angle_inv
+        data['inputs']['scale_inv'] = scale_inv
+        return data
+
     def testTrain(self):
         self.model.eval()
 
-        for data in tqdm(self.dataloader):
+        test_dataloader = DataLoader(self.dataset,
+                                     batch_size=1,
+                                     shuffle=False,
+                                     drop_last=False,
+                                     num_workers=1,
+                                     worker_init_fn=worker_init_fn)
+
+        for data in tqdm(test_dataloader):
             toCuda(data)
+            data = self.preProcessData(data)
 
-            query_point_array, _ = seprate_point_cloud(
-                data['inputs']['point_array'], [0.25, 0.75])
+            renderPointArray(data['inputs']['point_array'][0])
+            renderPointArray(data['inputs']['trans_query_point_array'][0])
 
-            data['inputs']['query_point_array'] = query_point_array
-
-            renderPointArrayWithUnitBBox(data['inputs']['point_array'][0])
-            renderPointArrayWithUnitBBox(
-                data['inputs']['query_point_array'][0])
+            renderPointArrayList(
+                [points, query_points, trans_points, trans_query_points])
 
             data = self.model(data)
 
             print(data['predictions'].keys())
             dense_points = data['predictions']['dense_points']
-            renderPointArrayWithUnitBBox(dense_points[0])
+            renderPointArray(dense_points[0])
             renderPredictBBox(data)
         return True
 
     def trainStep(self, data):
         toCuda(data)
-
-        query_point_array, _ = seprate_point_cloud(
-            data['inputs']['point_array'], [0.25, 0.75])
-
-        data['inputs']['query_point_array'] = query_point_array
+        data = self.preProcessData(data)
 
         self.model.train()
         self.model.zero_grad()
