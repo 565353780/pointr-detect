@@ -65,23 +65,29 @@ def transPointArrayTensor(point_array_tensor,
 
     rotate_matrix = getRotateMatrix(euler_angle, is_inverse)
 
-    origin_trans_point_array_tensor = torch.matmul(origin_point_array_tensor,
-                                                   rotate_matrix)
+    if is_inverse:
+        scale_origin_point_array_tensor = origin_point_array_tensor * scale
+        final_origin_point_array_tensor = torch.matmul(
+            scale_origin_point_array_tensor, rotate_matrix)
+    else:
+        trans_origin_point_array_tensor = torch.matmul(
+            origin_point_array_tensor, rotate_matrix)
+        final_origin_point_array_tensor = trans_origin_point_array_tensor * scale
 
-    trans_point_array = origin_trans_point_array + center + translate
-    return trans_point_array
+    trans_point_array_tensor = final_origin_point_array_tensor + center + translate
+    return trans_point_array_tensor
 
 
 def transPointArray(point_array,
                     translate,
                     euler_angle,
                     scale,
-                    is_inverse=False,
-                    rotate_center=None):
-    if rotate_center is None:
-        center = np.mean(point_array, axis=0)
-    else:
-        center = np.array(rotate_center)
+                    is_inverse=False):
+    if isinstance(point_array, torch.Tensor):
+        return transPointArrayTensor(point_array, translate, euler_angle,
+                                     scale, is_inverse)
+
+    center = np.mean(point_array, axis=0)
 
     origin_point_array = point_array - center
 
@@ -98,7 +104,24 @@ def transPointArray(point_array,
     return trans_point_array
 
 
+def randomTransPointArrayTensor(point_array_tensor, need_trans=False):
+    device = point_array_tensor.device
+
+    translate = (torch.rand(3) - 0.5).to(device)
+    euler_angle = ((torch.rand(3) - 0.5) * 360.0).to(device)
+    scale = (torch.rand(3) + 0.5).to(device)
+
+    trans_point_array_tensor = transPointArray(point_array_tensor, translate,
+                                               euler_angle, scale)
+    if need_trans:
+        return trans_point_array_tensor, translate, euler_angle, scale
+    return trans_point_array_tensor
+
+
 def randomTransPointArray(point_array, need_trans=False):
+    if isinstance(point_array, torch.Tensor):
+        return randomTransPointArrayTensor(point_array, need_trans)
+
     translate = np.random.rand(3) - 0.5
     euler_angle = (np.random.rand(3) - 0.5) * 360.0
     scale = np.random.rand(3) + 0.5
