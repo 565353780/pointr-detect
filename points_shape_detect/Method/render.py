@@ -22,6 +22,25 @@ def getPCDFromPointArray(point_array, color=None):
     return pcd
 
 
+def renderPointArray(point_array):
+    if isinstance(point_array, np.ndarray):
+        pcd = getPCDFromPointArray(point_array)
+    else:
+        pcd = getPCDFromPointArray(point_array.detach().cpu().numpy())
+
+    o3d.visualization.draw_geometries([pcd])
+    return True
+
+
+def renderPointArrayList(point_array_list):
+    if isinstance(point_array_list[0], np.ndarray):
+        points = np.vstack(point_array_list)
+        return renderPointArray(points)
+
+    points = torch.vstack(point_array_list)
+    return renderPointArray(points)
+
+
 def renderPointArrayWithUnitBBox(point_array):
     unit_bbox = getOpen3DBBox()
 
