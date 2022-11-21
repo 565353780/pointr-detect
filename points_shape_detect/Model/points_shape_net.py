@@ -54,9 +54,9 @@ class PointsShapeNet(nn.Module):
                                             nn.LeakyReLU(negative_slope=0.2),
                                             nn.Conv1d(3, 3, 1))
 
-        self.quat_decoder = nn.Sequential(nn.Conv1d(self.trans_dim, 4, 1),
-                                          nn.LeakyReLU(negative_slope=0.2),
-                                          nn.Conv1d(4, 4, 1))
+        self.euler_angle_decoder = nn.Sequential(
+            nn.Conv1d(self.trans_dim, 3, 1), nn.LeakyReLU(negative_slope=0.2),
+            nn.Conv1d(3, 3, 1))
 
         self.scale_decoder = nn.Sequential(nn.Conv1d(self.trans_dim, 3, 1),
                                            nn.LeakyReLU(negative_slope=0.2),
@@ -110,27 +110,112 @@ class PointsShapeNet(nn.Module):
         data['predictions']['reduce_global_feature'] = reduce_global_feature
         return data
 
+    def lossTrans(self, data):
+        euler_angle_inv = data['predictions']['euler_angle_inv']
+        scale_inv = data['predictions']['scale_inv']
+        gt_euler_angle_inv = data['inputs']['euler_angle_inv']
+        gt_scale_inv = data['inputs']['scale_inv']
+
+        loss_euler_angle_inv_l1 = self.l1_loss(euler_angle_inv,
+                                               gt_euler_angle_inv)
+        loss_scale_inv_l1 = self.l1_loss(scale_inv, gt_scale_inv)
+
+        data['losses'][
+            'loss_euler_angle_inv_l1'] = loss_euler_angle_inv_l1 * 1000
+        data['losses']['loss_scale_inv_l1'] = loss_scale_inv_l1 * 1000
+        return data
+
+    def encodeTrans(self, data):
+        # BMxC
+        reduce_global_feature = data['predictions']['reduce_global_feature']
+
+        B, M, C = data['predictions']['encode_feature'].shape
+
+        # BMxC -[reshape]-> BxMCx1 -[bbox_feature_decoder]-> BxCx1
+        bbox_feature = self.bbox_feature_decoder(
+            reduce_global_feature.reshape(B, -1, 1))
+
+        # BxCx1 -[euler_angle_decoder]-> Bx3x1 -[reshape]-> Bx3
+        euler_angle_inv = self.euler_angle_decoder(bbox_feature).reshape(B, -1)
+
+        # BxCx1 -[scale_decoder]-> Bx3x1 -[reshape]-> Bx3
+        scale_inv = self.scale_decoder(bbox_feature).reshape(B, -1)
+
+        data['predictions']['euler_angle_inv'] = euler_angle_inv
+        data['predictions']['scale_inv'] = scale_inv
+
+        if self.training:
+            data = self.lossTrans(data)
+        return data
+
+    def transQueryPointArray(self, data):
+        # Bx#pointx3
+        query_point_array = data['inputs']['query_point_array']
+        # Bx3
+        euler_angle_inv = data['predictions']['euler_angle_inv']
+        # Bx3
+        scale_inv = data['predictions']['scale_inv']
+
+        trans_query_point_array = torch.mm(query_point_array 
+        return data
+
+    def encodeTransPoints(self, data):
+        # Bx#pointx3
+        query_point_array = data['inputs']['query_point_array']
+
+        # Bx#pointx3 -[feature_encoder]-> BxMxC and BxMx3
+        encode_feature, coarse_point_cloud = self.feature_encoder(
+            query_point_array)
+
+        data['predictions']['encode_feature'] = encode_feature
+        data['predictions']['coarse_point_cloud'] = coarse_point_cloud
+        return data
+
+    def decodePointsFeature(self, data):
+        # BxMxC
+        encode_feature = data['predictions']['encode_feature']
+        # BxMx3
+        coarse_point_cloud = data['predictions']['coarse_point_cloud']
+
+        B, M, C = data['predictions']['encode_feature'].shape
+
+        # BxMxC -[transpose]-> BxCxM -[increase_dim]-> Bx1024xM -[transpose]-> BxMx1024
+        points_feature = self.increase_dim(encode_feature.transpose(
+            1, 2)).transpose(1, 2)
+
+        # BxMx1024 -[max]-> Bx1024
+        global_points_feature = torch.max(points_feature, dim=1)[0]
+
+        # Bx1024 -[unsqueeze]-> Bx1x1024 -[expand]-> BxMx1024
+        replicate_global_points_feature = global_points_feature.unsqueeze(
+            -2).expand(-1, M, -1)
+
+        # BxMx1024 + BxMxC + BxMx3 -[cat]-> BxMx(C+1027)
+        global_feature = torch.cat([
+            replicate_global_points_feature, encode_feature, coarse_point_cloud
+        ],
+                                   dim=-1)
+
+        # BxMx(C+1027) -[reshape]-> BMx(C+1027) -[reduce_map]-> BMxC
+        reduce_global_feature = self.reduce_map(
+            global_feature.reshape(B * M, -1))
+
+        data['predictions']['reduce_global_feature'] = reduce_global_feature
+        return data
+
     def lossBBox(self, data):
         bbox = data['predictions']['bbox']
         center = data['predictions']['center']
-        quat_inv = data['predictions']['quat_inv']
-        scale_inv = data['predictions']['scale_inv']
         gt_bbox = data['inputs']['bbox']
         gt_center = data['inputs']['center']
-        gt_quat_inv = data['inputs']['quat_inv']
-        gt_scale_inv = data['inputs']['scale_inv']
 
         loss_bbox_l1 = self.l1_loss(bbox, gt_bbox)
         loss_center_l1 = self.l1_loss(center, gt_center)
         loss_bbox_eiou = torch.mean(IoULoss.EIoU(bbox, gt_bbox))
-        loss_quat_inv_l1 = self.l1_loss(quat_inv, gt_quat_inv)
-        loss_scale_inv_l1 = self.l1_loss(scale_inv, gt_scale_inv)
 
         data['losses']['loss_bbox_l1'] = loss_bbox_l1 * 1000
         data['losses']['loss_center_l1'] = loss_center_l1 * 1000
         data['losses']['loss_bbox_eiou'] = loss_bbox_eiou
-        data['losses']['loss_quat_inv_l1'] = loss_quat_inv_l1 * 1000
-        data['losses']['loss_scale_inv_l1'] = loss_scale_inv_l1 * 1000
         return data
 
     def encodeBBox(self, data):
@@ -149,16 +234,8 @@ class PointsShapeNet(nn.Module):
         # BxCx1 -[center_decoder]-> Bx3x1 -[reshape]-> Bx3
         center = self.center_decoder(bbox_feature).reshape(B, -1)
 
-        # BxCx1 -[quat_decoder]-> Bx4x1 -[reshape]-> Bx4
-        quat_inv = self.quat_decoder(bbox_feature).reshape(B, -1)
-
-        # BxCx1 -[scale_decoder]-> Bx3x1 -[reshape]-> Bx3
-        scale_inv = self.scale_decoder(bbox_feature).reshape(B, -1)
-
         data['predictions']['bbox'] = bbox
         data['predictions']['center'] = center
-        data['predictions']['quat_inv'] = quat_inv
-        data['predictions']['scale_inv'] = scale_inv
 
         if self.training:
             data = self.lossBBox(data)
