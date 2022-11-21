@@ -9,7 +9,7 @@ from torch.utils.data import Dataset
 
 from points_shape_detect.Data.io import IO
 from points_shape_detect.Method.trans import \
-    normalizePointArray, randomTransPointArray, getInverseTrans
+    normalizePointArray, transPointArray, getInverseTrans
 
 import sys
 
@@ -80,12 +80,15 @@ class CADDataset(Dataset):
         data = {'inputs': {}, 'predictions': {}, 'losses': {}, 'logs': {}}
 
         point_array = IO.get(cad_model_file_path).astype(np.float32)
-        point_array = normalizePointArray(point_array)
+        origin_point_array = normalizePointArray(point_array)
 
-        point_array, translate, quat, scale = randomTransPointArray(
-            point_array, True)
-        translate_inv, quat_inv, scale_inv = getInverseTrans(
-            translate, quat, scale)
+        translate = (np.random.rand(3) - 0.5) * 1000
+        euler_angle = [0.0, 0.0, 0.0]
+        scale_value = np.random.rand(3) + 0.5
+        cale = [scale_value for _ in range(3)]
+
+        trans_point_array = transPointArray(origin_point_array, translate,
+                                            euler_angle, scale)
 
         min_point = np.min(point_array, axis=0)
         max_point = np.max(point_array, axis=0)
@@ -93,11 +96,10 @@ class CADDataset(Dataset):
         bbox = np.hstack((min_point, max_point))
         center = np.mean([min_point, max_point], axis=0)
 
-        data['inputs']['point_array'] = torch.from_numpy(point_array).float()
+        data['inputs']['point_array'] = torch.from_numpy(
+            trans_point_array).float()
         data['inputs']['bbox'] = torch.from_numpy(bbox).float()
         data['inputs']['center'] = torch.from_numpy(center).float()
-        data['inputs']['quat_inv'] = torch.from_numpy(quat_inv).float()
-        data['inputs']['scale_inv'] = torch.from_numpy(scale_inv).float()
         return data
 
     def __len__(self):
