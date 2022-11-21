@@ -84,8 +84,7 @@ class CADDataset(Dataset):
 
         translate = (np.random.rand(3) - 0.5) * 1000
         euler_angle = [0.0, 0.0, 0.0]
-        scale_value = np.random.rand(3) + 0.5
-        cale = [scale_value for _ in range(3)]
+        scale = np.random.rand(3) + 0.5
 
         trans_point_array = transPointArray(origin_point_array, translate,
                                             euler_angle, scale)
