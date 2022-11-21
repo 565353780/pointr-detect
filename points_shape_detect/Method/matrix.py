@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import quaternion
 import numpy as np
+import quaternion
 
 
 def make_M_from_tqs(t: list, q: list, s: list, center=None) -> np.ndarray:
@@ -23,20 +23,42 @@ def make_M_from_tqs(t: list, q: list, s: list, center=None) -> np.ndarray:
     return M
 
 
-def decompose_mat4(M: np.ndarray) -> tuple:
-    R = M[0:3, 0:3].copy()
-    sx = np.linalg.norm(R[0:3, 0])
-    sy = np.linalg.norm(R[0:3, 1])
-    sz = np.linalg.norm(R[0:3, 2])
+def getXRotateMatrix(rotate_angle):
+    rotate_rad = rotate_angle * np.pi / 180.0
 
-    s = np.array([sx, sy, sz])
+    x_rotate_matrix = np.array([[1.0, 0.0, 0.0],
+                                [0.0,
+                                 np.cos(rotate_rad), -np.sin(rotate_rad)],
+                                [0.0,
+                                 np.sin(rotate_rad),
+                                 np.cos(rotate_rad)]])
+    return x_rotate_matrix
 
-    R[:, 0] /= sx
-    R[:, 1] /= sy
-    R[:, 2] /= sz
 
-    q = quaternion.as_float_array(quaternion.from_rotation_matrix(R[0:3, 0:3]))
-    # q = quaternion.from_float_array(quaternion_from_matrix(M, False))
+def getYRotateMatrix(rotate_angle):
+    rotate_rad = rotate_angle * np.pi / 180.0
 
-    t = M[0:3, 3]
-    return t, q, s
+    y_rotate_matrix = np.array([[np.cos(rotate_rad), 0.0,
+                                 np.sin(rotate_rad)], [0.0, 1.0, 0.0],
+                                [-np.sin(rotate_rad), 0.0,
+                                 np.cos(rotate_rad)]])
+    return y_rotate_matrix
+
+
+def getZRotateMatrix(rotate_angle):
+    rotate_rad = rotate_angle * np.pi / 180.0
+
+    z_rotate_matrix = np.array([[np.cos(rotate_rad), -np.sin(rotate_rad), 0.0],
+                                [np.sin(rotate_rad),
+                                 np.cos(rotate_rad), 0.0], [0.0, 0.0, 1.0]])
+    return z_rotate_matrix
+
+
+def getRotateMatrix(xyz_rotate_angle, is_inverse=False):
+    x_rotate_matrix = getXRotateMatrix(xyz_rotate_angle[0])
+    y_rotate_matrix = getYRotateMatrix(xyz_rotate_angle[1])
+    z_rotate_matrix = getZRotateMatrix(xyz_rotate_angle[2])
+
+    if is_inverse:
+        return z_rotate_matrix @ y_rotate_matrix @ x_rotate_matrix
+    return x_rotate_matrix @ y_rotate_matrix @ z_rotate_matrix
