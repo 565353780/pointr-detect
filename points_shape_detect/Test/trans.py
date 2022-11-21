@@ -28,31 +28,35 @@ def testMatrix(print_progress=False):
         rotate_matrix_inv = getRotateMatrix(euler_angle_inv, True)
         rotate_matrix_inv2 = np.linalg.inv(rotate_matrix_inv)
         assert np.linalg.norm(rotate_matrix - rotate_matrix_inv2) < error
+    return True
 
-        npy_file_path = "/home/chli/chLi/PoinTr/ShapeNet55/shapenet_pc/" + \
-            "04090263-2eb7e88f5355630962a5697e98a94be.npy"
-        point_array = np.load(npy_file_path)
 
-        center = np.mean(point_array, axis=0)
+def testScale(print_progress=False):
+    test_num = 100
 
-        origin_point_array = point_array - center
+    error = 1e-10
 
-        trans_point_array = origin_point_array @ rotate_matrix
+    for_data = range(test_num)
+    if print_progress:
+        for_data = tqdm(for_data)
+    for _ in for_data:
+        scale = np.random.rand(3) + 0.5
+        scale_inv = 1.0 / scale
 
-        trans_back_point_array = trans_point_array @ rotate_matrix_inv
+        point_array = np.random.randn(8192, 3)
 
-        move_back_point_array = trans_back_point_array + center
+        scale_point_array = point_array * scale
 
-        renderPointArrayWithUnitBBox(
-            np.vstack(
-                (point_array, move_back_point_array + np.array([0, 0, 1]))))
+        scale_back_point_array = scale_point_array * scale_inv
+
+        assert np.linalg.norm(point_array - scale_back_point_array) < error
     return True
 
 
 def testEuler(print_progress=False):
     test_num = 100
 
-    error = 1e-2
+    error = 1e-6
 
     for_data = range(test_num)
     if print_progress:
@@ -83,11 +87,11 @@ def testEuler(print_progress=False):
         assert np.linalg.norm(euler_angle_inv2 - euler_angle) < error
         assert np.linalg.norm(scale_inv2 - scale) < error
 
-        print(np.linalg.norm(move_back_point_array - normalize_point_array),
-              error * point_array.shape[0])
-        renderPointArrayWithUnitBBox(
-            np.vstack((normalize_point_array,
-                       move_back_point_array + np.array([0, 0, 1]))))
+        #  print(np.linalg.norm(move_back_point_array - normalize_point_array),
+        #  error * point_array.shape[0])
+        #  renderPointArrayWithUnitBBox(
+        #  np.vstack((normalize_point_array,
+        #  move_back_point_array + np.array([0, 0, 1]))))
 
         assert np.linalg.norm(move_back_point_array - normalize_point_array
                               ) < error * point_array.shape[0]
@@ -133,10 +137,14 @@ def testEulerTensor(print_progress=False):
 
 
 def test():
-    print_progress = False
+    print_progress = True
 
     print("[INFO][trans::test] start testMatrix...")
     assert testMatrix(print_progress)
+    print("\t passed!")
+
+    print("[INFO][trans::test] start testScale...")
+    assert testScale(print_progress)
     print("\t passed!")
 
     print("[INFO][trans::test] start testEuler...")
