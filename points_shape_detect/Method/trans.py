@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import torch
 import numpy as np
+import open3d as o3d
+import torch
 
 from points_shape_detect.Method.matrix import getRotateMatrix
 
@@ -58,11 +59,7 @@ def transPointArrayTensor(point_array_tensor,
                           euler_angle,
                           scale,
                           is_inverse=False):
-    min_point_tensor = torch.min(point_array_tensor, 0)[0]
-    max_point_tensor = torch.max(point_array_tensor, 0)[0]
-    min_max_point_tensor = torch.cat([min_point_tensor,
-                                      max_point_tensor]).reshape(2, 3)
-    center = torch.mean(min_max_point_tensor, axis=0)
+    center = torch.mean(point_array_tensor, axis=0)
 
     origin_point_array_tensor = point_array_tensor - center
 
@@ -90,11 +87,14 @@ def transPointArray(point_array,
 
     rotate_matrix = getRotateMatrix(euler_angle, is_inverse)
 
-    origin_trans_point_array = origin_point_array @ rotate_matrix
+    if is_inverse:
+        scale_origin_point_array = origin_point_array * scale
+        final_origin_point_array = scale_origin_point_array @ rotate_matrix
+    else:
+        trans_origin_point_array = origin_point_array @ rotate_matrix
+        final_origin_point_array = trans_origin_point_array * scale
 
-    scale_origin_trans_point_array = origin_trans_point_array * scale
-
-    trans_point_array = scale_origin_trans_point_array + center + translate
+    trans_point_array = final_origin_point_array + center + translate
     return trans_point_array
 
 
