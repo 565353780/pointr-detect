@@ -19,7 +19,7 @@ def normalizePointArrayTensor(point_array_tensor):
     max_point_tensor = torch.max(point_array_tensor, 0)[0]
     min_max_point_tensor = torch.cat([min_point_tensor,
                                       max_point_tensor]).reshape(2, 3)
-    center = torch.mean(min_max_point_tensor, axis=0)
+    center = torch.mean(min_max_point_tensor, 0)
 
     origin_point_array_tensor = point_array_tensor - center
 
@@ -58,21 +58,23 @@ def transPointArrayTensor(point_array_tensor,
                           translate,
                           euler_angle,
                           scale,
-                          is_inverse=False):
-    center = torch.mean(point_array_tensor, axis=0)
+                          is_inverse=False,
+                          center=None):
+    if center is None:
+        center = torch.mean(point_array_tensor, 0)
 
     origin_point_array_tensor = point_array_tensor - center
 
     rotate_matrix = getRotateMatrix(euler_angle, is_inverse)
 
     if is_inverse:
-        scale_origin_point_array_tensor = origin_point_array_tensor * scale
-        final_origin_point_array_tensor = torch.matmul(
-            scale_origin_point_array_tensor, rotate_matrix)
-    else:
         trans_origin_point_array_tensor = torch.matmul(
             origin_point_array_tensor, rotate_matrix)
         final_origin_point_array_tensor = trans_origin_point_array_tensor * scale
+    else:
+        scale_origin_point_array_tensor = origin_point_array_tensor * scale
+        final_origin_point_array_tensor = torch.matmul(
+            scale_origin_point_array_tensor, rotate_matrix)
 
     trans_point_array_tensor = final_origin_point_array_tensor + center + translate
     return trans_point_array_tensor
@@ -82,23 +84,25 @@ def transPointArray(point_array,
                     translate,
                     euler_angle,
                     scale,
-                    is_inverse=False):
+                    is_inverse=False,
+                    center=None):
     if isinstance(point_array, torch.Tensor):
         return transPointArrayTensor(point_array, translate, euler_angle,
-                                     scale, is_inverse)
+                                     scale, is_inverse, center)
 
-    center = np.mean(point_array, axis=0)
+    if center is None:
+        center = np.mean(point_array, axis=0)
 
     origin_point_array = point_array - center
 
     rotate_matrix = getRotateMatrix(euler_angle, is_inverse)
 
     if is_inverse:
-        scale_origin_point_array = origin_point_array * scale
-        final_origin_point_array = scale_origin_point_array @ rotate_matrix
-    else:
         trans_origin_point_array = origin_point_array @ rotate_matrix
         final_origin_point_array = trans_origin_point_array * scale
+    else:
+        scale_origin_point_array = origin_point_array * scale
+        final_origin_point_array = scale_origin_point_array @ rotate_matrix
 
     trans_point_array = final_origin_point_array + center + translate
     return trans_point_array
