@@ -34,16 +34,7 @@ def worker_init_fn(worker_id):
 class Trainer(object):
 
     def __init__(self):
-        self.model = PointsShapeNet().cuda()
-
-        self.dataset = CADDataset()
-        self.dataloader = DataLoader(self.dataset,
-                                     batch_size=24,
-                                     shuffle=False,
-                                     drop_last=False,
-                                     num_workers=24,
-                                     worker_init_fn=worker_init_fn)
-
+        self.batch_size = 24
         self.lr = 5e-4
         self.weight_decay = 5e-4
         self.decay_step = 21
@@ -56,6 +47,16 @@ class Trainer(object):
         self.step = 0
         self.loss_min = float('inf')
         self.log_folder_name = getCurrentTime()
+
+        self.model = PointsShapeNet().cuda()
+
+        self.dataset = CADDataset()
+        self.dataloader = DataLoader(self.dataset,
+                                     batch_size=self.batch_size,
+                                     shuffle=False,
+                                     drop_last=False,
+                                     num_workers=self.batch_size,
+                                     worker_init_fn=worker_init_fn)
 
         self.optimizer = AdamW(self.model.parameters(),
                                lr=self.lr,
@@ -162,8 +163,6 @@ class Trainer(object):
         return data
 
     def testTrain(self):
-        self.model.eval()
-
         test_dataloader = DataLoader(self.dataset,
                                      batch_size=1,
                                      shuffle=False,
