@@ -186,6 +186,7 @@ class PointsShapeNet(nn.Module):
         data['losses']['loss_scale_inv_l1'] = loss_scale_inv_l1
         return data
 
+    @torch.no_grad()
     def transBackQueryPoints(self, data):
         trans_point_array = data['inputs']['trans_point_array']
         # Bx#pointx3
@@ -231,8 +232,7 @@ class PointsShapeNet(nn.Module):
             trans_back_bbox_list.append(trans_back_bbox.unsqueeze(0))
             trans_back_center_list.append(trans_back_center.unsqueeze(0))
 
-        trans_back_point_array = torch.cat(
-            trans_back_points_list).detach().clone()
+        trans_back_point_array = torch.cat(trans_back_points_list).detach()
         query_point_array = torch.cat(query_points_list).detach()
         trans_back_bbox = torch.cat(trans_back_bbox_list).detach()
         trans_back_center = torch.cat(trans_back_center_list).detach()
