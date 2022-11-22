@@ -175,16 +175,19 @@ class Trainer(object):
             data = self.preProcessData(data)
 
             renderPointArray(data['inputs']['point_array'][0])
-            renderPointArray(data['inputs']['trans_query_point_array'][0])
-
-            renderPointArrayList(
-                [points, query_points, trans_points, trans_query_points])
+            renderPointArrayList([
+                data['inputs']['trans_query_point_array'][0],
+                data['inputs']['trans_point_array'][0],
+            ])
 
             data = self.model(data)
 
             print(data['predictions'].keys())
-            dense_points = data['predictions']['dense_points']
-            renderPointArray(dense_points[0])
+            renderPointArrayList([
+                data['predictions']['trans_back_point_array'][0],
+                data['predictions']['query_point_array'][0],
+            ])
+            renderPointArray(data['predictions']['dense_points'][0])
             renderPredictBBox(data)
         return True
 
