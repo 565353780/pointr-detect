@@ -18,8 +18,8 @@ from points_shape_detect.Method.path import (createFileFolder, removeFile,
                                              renameFile)
 from points_shape_detect.Method.render import (renderPointArray,
                                                renderPointArrayList,
-                                               renderTransBackPoints,
-                                               renderPredictBBox)
+                                               renderPredictBBox,
+                                               renderTransBackPoints)
 from points_shape_detect.Method.sample import seprate_point_cloud
 from points_shape_detect.Method.time import getCurrentTime
 from points_shape_detect.Method.trans import getInverseTrans, transPointArray
