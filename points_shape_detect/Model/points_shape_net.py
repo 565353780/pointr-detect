@@ -109,7 +109,7 @@ class PointsShapeNet(nn.Module):
         loss_trans_coarse = self.loss_func(trans_coarse_points,
                                            trans_point_array)
 
-        data['losses']['loss_trans_coarse'] = loss_trans_coarse * 1000
+        data['losses']['loss_trans_coarse'] = loss_trans_coarse
         return data
 
     def decodeTransPointsFeature(self, data):
@@ -203,11 +203,11 @@ class PointsShapeNet(nn.Module):
         trans_back_bbox_list = []
         trans_back_center_list = []
 
-        translate = torch.tensor([0.0, 0.0, 0.0]).to(device)
         for i in range(trans_query_point_array.shape[0]):
             trans_points = trans_point_array[i]
             trans_query_points = trans_query_point_array[i]
             trans_query_points_center = torch.mean(trans_query_points, 0)
+            translate = -1.0 * trans_query_points_center
             euler_angle = euler_angle_inv[i]
             scale = scale_inv[i]
 
@@ -320,8 +320,8 @@ class PointsShapeNet(nn.Module):
         loss_center_l1 = self.l1_loss(center, gt_center)
         loss_bbox_eiou = torch.mean(IoULoss.EIoU(bbox, gt_bbox))
 
-        data['losses']['loss_bbox_l1'] = loss_bbox_l1 * 1000
-        data['losses']['loss_center_l1'] = loss_center_l1 * 1000
+        data['losses']['loss_bbox_l1'] = loss_bbox_l1
+        data['losses']['loss_center_l1'] = loss_center_l1
         data['losses']['loss_bbox_eiou'] = loss_bbox_eiou
         return data
 
@@ -383,8 +383,50 @@ class PointsShapeNet(nn.Module):
         loss_coarse = self.loss_func(coarse_points, point_array)
         loss_fine = self.loss_func(dense_points, point_array)
 
-        data['losses']['loss_coarse'] = loss_coarse * 1000
-        data['losses']['loss_fine'] = loss_fine * 1000
+        data['losses']['loss_coarse'] = loss_coarse
+        data['losses']['loss_fine'] = loss_fine
+        return data
+
+    def cutLoss(self, data, loss_name, min_value=None, max_value=None):
+        if min_value is not None:
+            data['losses'][loss_name] = torch.max(
+                data['losses'][loss_name],
+                torch.tensor(min_value).to(torch.float32).to(
+                    data['losses'][loss_name].device).reshape(1))[0]
+
+        if max_value is not None:
+            data['losses'][loss_name] = torch.min(
+                data['losses'][loss_name],
+                torch.tensor(max_value).to(torch.float32).to(
+                    data['losses'][loss_name].device).reshape(1))[0]
+        return data
+
+    def setWeight(self,
+                  data,
+                  loss_name,
+                  weight,
+                  min_value=None,
+                  max_value=None):
+        if weight != 1.0:
+            data['losses'][loss_name] = data['losses'][loss_name] * weight
+
+        return self.cutLoss(data, loss_name, min_value, max_value)
+
+    def addWeight(self, data):
+        if not self.training:
+            return data
+
+        self.setWeight(data, 'loss_trans_coarse', 1000)
+
+        self.setWeight(data, 'loss_euler_angle_inv_l1', 1)
+        self.setWeight(data, 'loss_scale_inv_l1', 1)
+
+        self.setWeight(data, 'loss_bbox_l1', 1)
+        self.setWeight(data, 'loss_center_l1', 1)
+        self.setWeight(data, 'loss_bbox_eiou', 1, max_value=1.0)
+
+        self.setWeight(data, 'loss_coarse', 1000)
+        self.setWeight(data, 'loss_fine', 1000)
         return data
 
     def forward(self, data):
@@ -407,4 +449,6 @@ class PointsShapeNet(nn.Module):
         data = self.decodePatchPoints(data)
 
         data = self.embedPoints(data)
+
+        data = self.addWeight(data)
         return data
