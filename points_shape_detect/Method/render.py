@@ -90,14 +90,61 @@ def renderRebuildPatchPoints(data):
     return True
 
 
-def renderPredictBBox(data):
-    if 'bbox' not in data['predictions'].keys():
-        print("[ERROR][render::renderPredictBBox]")
-        print("\t please save bbox during model running!")
+def renderTransBackPoints(data):
+    if 'trans_back_bbox' not in data['predictions'].keys():
+        print("[ERROR][render::renderTransBackPoints]")
+        print("\t please save trans_back_bbox during model running!")
         return False
-    if 'center' not in data['predictions'].keys():
+    if 'trans_back_center' not in data['predictions'].keys():
+        print("[ERROR][render::renderTransBackPoints]")
+        print("\t please save trans_back_center during model running!")
+        return False
+    if 'trans_back_point_array' not in data['predictions'].keys():
+        print("[ERROR][render::renderTransBackPoints]")
+        print("\t please save trans_back_point_array during model running!")
+        return False
+    if 'query_point_array' not in data['predictions'].keys():
+        print("[ERROR][render::renderTransBackPoints]")
+        print("\t please save query_point_array during model running!")
+        return False
+
+    pcd_list = []
+
+    gt_bbox_list = data['predictions']['trans_back_bbox'][0].cpu().numpy(
+    ).reshape(2, 3)
+    gt_bbox = BBox.fromList(gt_bbox_list)
+    open3d_gt_bbox = getOpen3DBBoxFromBBox(gt_bbox, [0, 255, 0])
+    pcd_list.append(open3d_gt_bbox)
+
+    gt_center = data['predictions']['trans_back_center'][0].cpu().numpy(
+    ).reshape(1, 3)
+    gt_center_pcd = getPCDFromPointArray(gt_center, [0, 255, 0])
+    pcd_list.append(gt_center_pcd)
+
+    trans_back_point_array = data['predictions']['trans_back_point_array'][
+        0].detach().cpu().numpy()
+    trans_back_point_array_pcd = getPCDFromPointArray(trans_back_point_array,
+                                                      [0, 0, 255])
+    pcd_list.append(trans_back_point_array_pcd)
+
+    query_point_array = data['predictions']['query_point_array'][0].detach(
+    ).cpu().numpy()
+    query_point_array_pcd = getPCDFromPointArray(query_point_array,
+                                                 [0, 0, 255])
+    pcd_list.append(query_point_array_pcd)
+
+    o3d.visualization.draw_geometries(pcd_list)
+    return True
+
+
+def renderPredictBBox(data):
+    if 'trans_back_bbox' not in data['predictions'].keys():
         print("[ERROR][render::renderPredictBBox]")
-        print("\t please save center during model running!")
+        print("\t please save trans_back_bbox during model running!")
+        return False
+    if 'trans_back_center' not in data['predictions'].keys():
+        print("[ERROR][render::renderPredictBBox]")
+        print("\t please save trans_back_center during model running!")
         return False
     if 'dense_points' not in data['predictions'].keys():
         print("[ERROR][render::renderPredictBBox]")
@@ -106,16 +153,16 @@ def renderPredictBBox(data):
 
     pcd_list = []
 
-    if 'bbox' in data['inputs'].keys():
-        gt_bbox_list = data['inputs']['bbox'][0].cpu().numpy().reshape(2, 3)
-        gt_bbox = BBox.fromList(gt_bbox_list)
-        open3d_gt_bbox = getOpen3DBBoxFromBBox(gt_bbox, [0, 255, 0])
-        pcd_list.append(open3d_gt_bbox)
+    gt_bbox_list = data['predictions']['trans_back_bbox'][0].cpu().numpy(
+    ).reshape(2, 3)
+    gt_bbox = BBox.fromList(gt_bbox_list)
+    open3d_gt_bbox = getOpen3DBBoxFromBBox(gt_bbox, [0, 255, 0])
+    pcd_list.append(open3d_gt_bbox)
 
-    if 'center' in data['inputs'].keys():
-        gt_center = data['inputs']['center'][0].cpu().numpy().reshape(1, 3)
-        gt_center_pcd = getPCDFromPointArray(gt_center, [0, 255, 0])
-        pcd_list.append(gt_center_pcd)
+    gt_center = data['predictions']['trans_back_center'][0].cpu().numpy(
+    ).reshape(1, 3)
+    gt_center_pcd = getPCDFromPointArray(gt_center, [0, 255, 0])
+    pcd_list.append(gt_center_pcd)
 
     dense_points = data['predictions']['dense_points'][0].detach().cpu().numpy(
     )
