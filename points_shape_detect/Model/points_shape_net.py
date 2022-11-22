@@ -407,10 +407,11 @@ class PointsShapeNet(nn.Module):
                   weight,
                   min_value=None,
                   max_value=None):
-        if weight != 1.0:
+        if weight != 1:
             data['losses'][loss_name] = data['losses'][loss_name] * weight
 
-        return self.cutLoss(data, loss_name, min_value, max_value)
+        data = self.cutLoss(data, loss_name, min_value, max_value)
+        return data
 
     def addWeight(self, data):
         if not self.training:
