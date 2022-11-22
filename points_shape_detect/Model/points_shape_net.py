@@ -197,44 +197,45 @@ class PointsShapeNet(nn.Module):
 
         device = trans_query_point_array.device
 
-        trans_back_points_list = []
-        query_points_list = []
-        trans_back_bbox_list = []
-        trans_back_center_list = []
+        with torch.no_grad():
+            trans_back_points_list = []
+            query_points_list = []
+            trans_back_bbox_list = []
+            trans_back_center_list = []
 
-        translate = torch.tensor([0.0, 0.0, 0.0]).to(device)
-        for i in range(trans_query_point_array.shape[0]):
-            trans_points = trans_point_array[i]
-            trans_query_points = trans_query_point_array[i]
-            trans_query_points_center = torch.mean(trans_query_points, 0)
-            euler_angle = euler_angle_inv[i]
-            scale = scale_inv[i]
+            translate = torch.tensor([0.0, 0.0, 0.0]).to(device)
+            for i in range(trans_query_point_array.shape[0]):
+                trans_points = trans_point_array[i]
+                trans_query_points = trans_query_point_array[i]
+                trans_query_points_center = torch.mean(trans_query_points, 0)
+                euler_angle = euler_angle_inv[i]
+                scale = scale_inv[i]
 
-            trans_back_points = transPointArray(
-                trans_points,
-                translate,
-                euler_angle,
-                scale,
-                center=trans_query_points_center)
-            query_points = transPointArray(trans_query_points, translate,
-                                           euler_angle, scale)
+                trans_back_points = transPointArray(
+                    trans_points,
+                    translate,
+                    euler_angle,
+                    scale,
+                    center=trans_query_points_center)
+                query_points = transPointArray(trans_query_points, translate,
+                                               euler_angle, scale)
 
-            min_point = torch.min(trans_back_points, 0)[0]
-            max_point = torch.max(trans_back_points, 0)[0]
+                min_point = torch.min(trans_back_points, 0)[0]
+                max_point = torch.max(trans_back_points, 0)[0]
 
-            trans_back_bbox = torch.cat([min_point, max_point])
-            min_max_point = trans_back_bbox.reshape(2, 3)
-            trans_back_center = torch.mean(min_max_point, 0)
+                trans_back_bbox = torch.cat([min_point, max_point])
+                min_max_point = trans_back_bbox.reshape(2, 3)
+                trans_back_center = torch.mean(min_max_point, 0)
 
-            trans_back_points_list.append(trans_back_points.unsqueeze(0))
-            query_points_list.append(query_points.unsqueeze(0))
-            trans_back_bbox_list.append(trans_back_bbox.unsqueeze(0))
-            trans_back_center_list.append(trans_back_center.unsqueeze(0))
+                trans_back_points_list.append(trans_back_points.unsqueeze(0))
+                query_points_list.append(query_points.unsqueeze(0))
+                trans_back_bbox_list.append(trans_back_bbox.unsqueeze(0))
+                trans_back_center_list.append(trans_back_center.unsqueeze(0))
 
-        trans_back_point_array = torch.cat(trans_back_points_list)
-        query_point_array = torch.cat(query_points_list)
-        trans_back_bbox = torch.cat(trans_back_bbox_list)
-        trans_back_center = torch.cat(trans_back_center_list)
+            trans_back_point_array = torch.cat(trans_back_points_list)
+            query_point_array = torch.cat(query_points_list)
+            trans_back_bbox = torch.cat(trans_back_bbox_list)
+            trans_back_center = torch.cat(trans_back_center_list)
 
         data['predictions']['trans_back_point_array'] = trans_back_point_array
         data['predictions']['query_point_array'] = query_point_array
