@@ -8,7 +8,7 @@ from torch import nn
 from points_shape_detect.Lib.chamfer_dist import ChamferDistanceL1
 from points_shape_detect.Loss.ious import IoULoss
 from points_shape_detect.Method.sample import fps
-from points_shape_detect.Method.trans import transPointArray, getInverseTrans
+from points_shape_detect.Method.trans import getInverseTrans, transPointArray
 from points_shape_detect.Model.fold import Fold
 from points_shape_detect.Model.pc_transformer import PCTransformer
 
@@ -80,14 +80,6 @@ class PointsShapeNet(nn.Module):
             'trans_coarse_point_cloud'] = trans_coarse_point_cloud
         return data
 
-    def lossTransComplete(self, data):
-        loss_trans_coarse = self.loss_func(
-            data['predictions']['trans_coarse_points'],
-            data['inputs']['trans_point_array'])
-
-        data['losses']['loss_trans_coarse'] = loss_trans_coarse * 1000
-        return data
-
     def embedTransPoints(self, data):
         # Bx#pointx3
         trans_query_point_array = data['inputs']['trans_query_point_array']
@@ -96,18 +88,28 @@ class PointsShapeNet(nn.Module):
             'trans_coarse_point_cloud']
 
         # Bx#pointx3 -[fps]-> BxMx3
-        trans_fps_query_point_array = fps(trans_query_point_array,
+        fps_trans_query_point_array = fps(trans_query_point_array,
                                           self.num_query)
 
         # BxMx3 + BxMx3 -[cat]-> Bx2Mx3
         trans_coarse_points = torch.cat(
-            [trans_coarse_point_cloud, trans_fps_query_point_array],
+            [trans_coarse_point_cloud, fps_trans_query_point_array],
             dim=1).contiguous()
 
         data['predictions']['trans_coarse_points'] = trans_coarse_points
 
         if self.training:
             data = self.lossTransComplete(data)
+        return data
+
+    def lossTransComplete(self, data):
+        trans_point_array = data['inputs']['trans_point_array']
+        trans_coarse_points = data['predictions']['trans_coarse_points']
+
+        loss_trans_coarse = self.loss_func(trans_coarse_points,
+                                           trans_point_array)
+
+        data['losses']['loss_trans_coarse'] = loss_trans_coarse * 1000
         return data
 
     def decodeTransPointsFeature(self, data):
@@ -145,21 +147,6 @@ class PointsShapeNet(nn.Module):
             'trans_reduce_global_feature'] = trans_reduce_global_feature
         return data
 
-    def lossTrans(self, data):
-        euler_angle_inv = data['predictions']['euler_angle_inv']
-        scale_inv = data['predictions']['scale_inv']
-        gt_euler_angle_inv = data['inputs']['euler_angle_inv']
-        gt_scale_inv = data['inputs']['scale_inv']
-
-        loss_euler_angle_inv_l1 = self.l1_loss(euler_angle_inv,
-                                               gt_euler_angle_inv)
-        loss_scale_inv_l1 = self.l1_loss(scale_inv, gt_scale_inv)
-
-        data['losses'][
-            'loss_euler_angle_inv_l1'] = loss_euler_angle_inv_l1 * 1000
-        data['losses']['loss_scale_inv_l1'] = loss_scale_inv_l1 * 1000
-        return data
-
     def encodeTrans(self, data):
         # BMxC
         trans_reduce_global_feature = data['predictions'][
@@ -185,7 +172,22 @@ class PointsShapeNet(nn.Module):
             data = self.lossTrans(data)
         return data
 
+    def lossTrans(self, data):
+        euler_angle_inv = data['predictions']['euler_angle_inv']
+        scale_inv = data['predictions']['scale_inv']
+        gt_euler_angle_inv = data['inputs']['euler_angle_inv']
+        gt_scale_inv = data['inputs']['scale_inv']
+
+        loss_euler_angle_inv_l1 = self.l1_loss(euler_angle_inv,
+                                               gt_euler_angle_inv)
+        loss_scale_inv_l1 = self.l1_loss(scale_inv, gt_scale_inv)
+
+        data['losses']['loss_euler_angle_inv_l1'] = loss_euler_angle_inv_l1
+        data['losses']['loss_scale_inv_l1'] = loss_scale_inv_l1
+        return data
+
     def transBackQueryPoints(self, data):
+        trans_point_array = data['inputs']['trans_point_array']
         # Bx#pointx3
         trans_query_point_array = data['inputs']['trans_query_point_array']
         # Bx3
@@ -195,21 +197,49 @@ class PointsShapeNet(nn.Module):
 
         device = trans_query_point_array.device
 
+        trans_back_points_list = []
         query_points_list = []
+        trans_back_bbox_list = []
+        trans_back_center_list = []
 
         translate = torch.tensor([0.0, 0.0, 0.0]).to(device)
         for i in range(trans_query_point_array.shape[0]):
+            trans_points = trans_point_array[i]
             trans_query_points = trans_query_point_array[i]
+            trans_query_points_center = torch.mean(trans_query_points, 0)
             euler_angle = euler_angle_inv[i]
             scale = scale_inv[i]
 
+            trans_back_points = transPointArray(
+                trans_points,
+                translate,
+                euler_angle,
+                scale,
+                center=trans_query_points_center)
             query_points = transPointArray(trans_query_points, translate,
                                            euler_angle, scale)
+
+            min_point = torch.min(trans_back_points, 0)[0]
+            max_point = torch.max(trans_back_points, 0)[0]
+
+            trans_back_bbox = torch.cat([min_point, max_point])
+            min_max_point = trans_back_bbox.reshape(2, 3)
+            trans_back_center = torch.mean(min_max_point, 0)
+
+            trans_back_points_list.append(trans_back_points.unsqueeze(0))
             query_points_list.append(query_points.unsqueeze(0))
+            trans_back_bbox_list.append(trans_back_bbox.unsqueeze(0))
+            trans_back_center_list.append(trans_back_center.unsqueeze(0))
 
+        trans_back_point_array = torch.cat(trans_back_points_list)
         query_point_array = torch.cat(query_points_list)
+        trans_back_bbox = torch.cat(trans_back_bbox_list)
+        trans_back_center = torch.cat(trans_back_center_list)
 
+        data['predictions']['trans_back_point_array'] = trans_back_point_array
         data['predictions']['query_point_array'] = query_point_array
+        data['predictions']['trans_back_bbox'] = trans_back_bbox
+        data['predictions']['trans_back_center'] = trans_back_center
         return data
 
     def encodePoints(self, data):
@@ -256,21 +286,6 @@ class PointsShapeNet(nn.Module):
         data['predictions']['reduce_global_feature'] = reduce_global_feature
         return data
 
-    def lossBBox(self, data):
-        bbox = data['predictions']['bbox']
-        center = data['predictions']['center']
-        gt_bbox = data['inputs']['bbox']
-        gt_center = data['inputs']['center']
-
-        loss_bbox_l1 = self.l1_loss(bbox, gt_bbox)
-        loss_center_l1 = self.l1_loss(center, gt_center)
-        loss_bbox_eiou = torch.mean(IoULoss.EIoU(bbox, gt_bbox))
-
-        data['losses']['loss_bbox_l1'] = loss_bbox_l1 * 1000
-        data['losses']['loss_center_l1'] = loss_center_l1 * 1000
-        data['losses']['loss_bbox_eiou'] = loss_bbox_eiou
-        return data
-
     def encodeBBox(self, data):
         # BMxC
         reduce_global_feature = data['predictions']['reduce_global_feature']
@@ -292,6 +307,21 @@ class PointsShapeNet(nn.Module):
 
         if self.training:
             data = self.lossBBox(data)
+        return data
+
+    def lossBBox(self, data):
+        bbox = data['predictions']['bbox']
+        center = data['predictions']['center']
+        gt_bbox = data['predictions']['trans_back_bbox']
+        gt_center = data['predictions']['trans_back_center']
+
+        loss_bbox_l1 = self.l1_loss(bbox, gt_bbox)
+        loss_center_l1 = self.l1_loss(center, gt_center)
+        loss_bbox_eiou = torch.mean(IoULoss.EIoU(bbox, gt_bbox))
+
+        data['losses']['loss_bbox_l1'] = loss_bbox_l1 * 1000
+        data['losses']['loss_center_l1'] = loss_center_l1 * 1000
+        data['losses']['loss_bbox_eiou'] = loss_bbox_eiou
         return data
 
     def decodePatchPoints(self, data):
@@ -318,16 +348,6 @@ class PointsShapeNet(nn.Module):
         data['predictions']['rebuild_points'] = rebuild_points
         return data
 
-    def lossComplete(self, data):
-        loss_coarse = self.loss_func(data['predictions']['coarse_points'],
-                                     data['inputs']['point_array'])
-        loss_fine = self.loss_func(data['predictions']['dense_points'],
-                                   data['inputs']['point_array'])
-
-        data['losses']['loss_coarse'] = loss_coarse * 1000
-        data['losses']['loss_fine'] = loss_fine * 1000
-        return data
-
     def embedPoints(self, data):
         # Bx#pointx3
         query_point_array = data['predictions']['query_point_array']
@@ -352,6 +372,18 @@ class PointsShapeNet(nn.Module):
 
         if self.training:
             data = self.lossComplete(data)
+        return data
+
+    def lossComplete(self, data):
+        point_array = data['predictions']['trans_back_point_array']
+        coarse_points = data['predictions']['coarse_points']
+        dense_points = data['predictions']['dense_points']
+
+        loss_coarse = self.loss_func(coarse_points, point_array)
+        loss_fine = self.loss_func(dense_points, point_array)
+
+        data['losses']['loss_coarse'] = loss_coarse * 1000
+        data['losses']['loss_fine'] = loss_fine * 1000
         return data
 
     def forward(self, data):
