@@ -18,6 +18,7 @@ from points_shape_detect.Method.path import (createFileFolder, removeFile,
                                              renameFile)
 from points_shape_detect.Method.render import (renderPointArray,
                                                renderPointArrayList,
+                                               renderTransBackPoints,
                                                renderPredictBBox)
 from points_shape_detect.Method.sample import seprate_point_cloud
 from points_shape_detect.Method.time import getCurrentTime
@@ -183,12 +184,8 @@ class Trainer(object):
             data = self.model(data)
 
             print(data['predictions'].keys())
-            renderPointArrayList([
-                data['predictions']['trans_back_point_array'][0],
-                data['predictions']['query_point_array'][0],
-            ])
-            renderPointArray(data['predictions']['dense_points'][0])
-            renderPredictBBox(data)
+            renderTransBackPoints(data)
+            #  renderPredictBBox(data)
         return True
 
     def trainStep(self, data):
