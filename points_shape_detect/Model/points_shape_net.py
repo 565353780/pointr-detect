@@ -466,7 +466,7 @@ class PointsShapeNet(nn.Module):
 
         self.setWeight(data, 'loss_bbox_l1', 1000)
         self.setWeight(data, 'loss_center_l1', 1000)
-        self.setWeight(data, 'loss_bbox_eiou', 1, max_value=1)
+        self.setWeight(data, 'loss_bbox_eiou', 10, max_value=10)
 
         self.setWeight(data, 'loss_coarse', 1000)
         self.setWeight(data, 'loss_fine', 1000)
