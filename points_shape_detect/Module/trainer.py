@@ -122,7 +122,7 @@ class Trainer(object):
         trans_point_array = data['inputs']['trans_point_array']
 
         trans_query_point_array, _ = seprate_point_cloud(
-            trans_point_array, [0.25, 1.0])
+            trans_point_array, [0, 0.75])
 
         data['inputs']['trans_query_point_array'] = trans_query_point_array
         return data
