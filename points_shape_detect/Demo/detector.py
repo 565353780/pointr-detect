@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import sys
+
+sys.path.append("../udf-generate")
+
 import os
 import numpy as np
 import open3d as o3d
