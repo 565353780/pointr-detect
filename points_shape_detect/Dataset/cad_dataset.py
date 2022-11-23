@@ -2,16 +2,17 @@
 # -*- coding: utf-8 -*-
 
 import os
-import torch
+import sys
+
 import numpy as np
-from tqdm import tqdm
+import torch
 from torch.utils.data import Dataset
+from tqdm import tqdm
 
 from points_shape_detect.Data.io import IO
-from points_shape_detect.Method.trans import \
-    normalizePointArray, transPointArray, getInverseTrans
-
-import sys
+from points_shape_detect.Method.trans import (getInverseTrans,
+                                              normalizePointArray,
+                                              transPointArray)
 
 sys.path.append("../auto-cad-recon")
 sys.path.append("../mesh-manage/")
@@ -83,11 +84,13 @@ class CADDataset(Dataset):
         origin_point_array = normalizePointArray(point_array)
 
         translate = (np.random.rand(3) - 0.5) * 1000
-        euler_angle = [0.0, 0.0, 0.0]
-        scale = np.random.rand(3) + 0.5
+        euler_angle = (np.random.rand(3) - 0.5) * 360.0
+        scale = 1.0 + ((np.random.rand(3) - 0.5) * 0.2)
 
         trans_point_array = transPointArray(origin_point_array, translate,
                                             euler_angle, scale)
+        translate_inv, euler_angle_inv, scale_inv = getInverseTrans(
+            translate, euler_angle, scale)
 
         min_point = np.min(point_array, axis=0)
         max_point = np.max(point_array, axis=0)
@@ -95,10 +98,15 @@ class CADDataset(Dataset):
         bbox = np.hstack((min_point, max_point))
         center = np.mean([min_point, max_point], axis=0)
 
-        data['inputs']['point_array'] = torch.from_numpy(
+        data['inputs']['trans_point_array'] = torch.from_numpy(
             trans_point_array).float()
-        data['inputs']['bbox'] = torch.from_numpy(bbox).float()
-        data['inputs']['center'] = torch.from_numpy(center).float()
+        data['inputs']['trans_bbox'] = torch.from_numpy(bbox).to(torch.float32)
+        data['inputs']['trans_center'] = torch.from_numpy(center).to(
+            torch.float32)
+        data['inputs']['euler_angle_inv'] = torch.from_numpy(
+            euler_angle_inv).to(torch.float32)
+        data['inputs']['scale_inv'] = torch.from_numpy(scale_inv).to(
+            torch.float32)
         return data
 
     def __len__(self):

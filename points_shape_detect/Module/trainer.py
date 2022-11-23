@@ -35,8 +35,8 @@ class Trainer(object):
 
     def __init__(self):
         self.batch_size = 24
-        self.lr = 5e-4
-        self.weight_decay = 5e-4
+        self.lr = 5e-5
+        self.weight_decay = 5e-5
         self.decay_step = 21
         self.lr_decay = 0.76
         self.lowest_decay = 0.02
@@ -117,49 +117,14 @@ class Trainer(object):
         renameFile(tmp_save_model_file_path, save_model_file_path)
         return True
 
+    @torch.no_grad()
     def preProcessData(self, data):
-        point_array = data['inputs']['point_array']
+        trans_point_array = data['inputs']['trans_point_array']
 
-        query_point_array, _ = seprate_point_cloud(point_array, [0.25, 0.75])
+        trans_query_point_array, _ = seprate_point_cloud(
+            trans_point_array, [0.25, 1.0])
 
-        translate = torch.tensor([0.0, 0.0, 0.0]).to(torch.float32).cuda()
-
-        trans_points_list = []
-        trans_query_points_list = []
-        euler_angle_inv_list = []
-        scale_inv_list = []
-
-        for i in range(point_array.shape[0]):
-            points = point_array[i]
-            query_points = query_point_array[i]
-            query_points_center = torch.mean(query_points, 0)
-            euler_angle = ((torch.rand(3) - 0.5) * 360.0).cuda()
-            scale = (torch.rand(3) + 0.5).cuda()
-
-            trans_points = transPointArray(points,
-                                           translate,
-                                           euler_angle,
-                                           scale,
-                                           center=query_points_center)
-            trans_query_points = transPointArray(query_points, translate,
-                                                 euler_angle, scale)
-            _, euler_angle_inv, scale_inv = getInverseTrans(
-                translate, euler_angle, scale)
-
-            trans_points_list.append(trans_points.unsqueeze(0))
-            trans_query_points_list.append(trans_query_points.unsqueeze(0))
-            euler_angle_inv_list.append(euler_angle_inv.unsqueeze(0))
-            scale_inv_list.append(scale_inv.unsqueeze(0))
-
-        trans_point_array = torch.cat(trans_points_list)
-        trans_query_point_array = torch.cat(trans_query_points_list)
-        euler_angle_inv = torch.cat(euler_angle_inv_list)
-        scale_inv = torch.cat(scale_inv_list)
-
-        data['inputs']['trans_point_array'] = trans_point_array
         data['inputs']['trans_query_point_array'] = trans_query_point_array
-        data['inputs']['euler_angle_inv'] = euler_angle_inv
-        data['inputs']['scale_inv'] = scale_inv
         return data
 
     def testTrain(self):
@@ -174,7 +139,7 @@ class Trainer(object):
             toCuda(data)
             data = self.preProcessData(data)
 
-            renderPointArray(data['inputs']['point_array'][0])
+            renderPointArray(data['inputs']['trans_point_array'][0])
             renderPointArrayList([
                 data['inputs']['trans_query_point_array'][0],
                 data['inputs']['trans_point_array'][0],
