@@ -36,7 +36,7 @@ def seprate_point_cloud(xyz, crop, fixed_points=None, padding_zeros=False):
     _, n, c = xyz.shape
 
     assert c == 3
-    if crop == 1:
+    if crop == 0:
         return xyz, None
 
     INPUT = []
@@ -44,6 +44,8 @@ def seprate_point_cloud(xyz, crop, fixed_points=None, padding_zeros=False):
     for points in xyz:
         if isinstance(crop, list):
             num_crop = random.randint(int(n * crop[0]), int(n * crop[1]))
+            if num_crop == 0:
+                return xyz, None
         else:
             num_crop = int(n * crop)
 
