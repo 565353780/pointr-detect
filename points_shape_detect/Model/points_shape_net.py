@@ -94,114 +94,158 @@ class PointsShapeNet(nn.Module):
             'origin_query_point_array'] = origin_query_point_array
         return data
 
+    @torch.no_grad()
     def rotateBackPoints(self, data):
-        data = self.rotate_net(data)
-        return data
-
-    def encodeOriginPoints(self, data):
+        origin_point_array = data['predictions']['origin_point_array']
         # Bx#pointx3
         origin_query_point_array = data['predictions'][
             'origin_query_point_array']
+        euler_angle_inv = data['predictions']['origin_query_euler_angle_inv']
+
+        device = origin_query_point_array.device
+
+        rotate_back_points_list = []
+        rotate_back_query_points_list = []
+
+        translate = torch.tensor([0.0, 0.0, 0.0],
+                                 dtype=torch.float32).to(device)
+        scale = torch.tensor([1.0, 1.0, 1.0], dtype=torch.float32).to(device)
+        for i in range(origin_query_point_array.shape[0]):
+            origin_points = origin_point_array[i]
+            origin_query_points = origin_query_point_array[i]
+            euler_angle = euler_angle_inv[i]
+
+            rotate_back_points = transPointArray(origin_points, translate,
+                                                 euler_angle, scale, True,
+                                                 translate)
+            rotate_back_query_points = transPointArray(origin_query_points,
+                                                       translate, euler_angle,
+                                                       scale, True, translate)
+
+            rotate_back_points_list.append(rotate_back_points.unsqueeze(0))
+            rotate_back_query_points_list.append(
+                rotate_back_query_points.unsqueeze(0))
+
+        rotate_back_point_array = torch.cat(rotate_back_points_list).detach()
+        rotate_back_query_point_array = torch.cat(
+            rotate_back_query_points_list).detach()
+
+        data['predictions'][
+            'rotate_back_point_array'] = rotate_back_point_array
+        data['predictions'][
+            'rotate_back_query_point_array'] = rotate_back_query_point_array
+        return data
+
+    def encodeRotateBackPoints(self, data):
+        # Bx#pointx3
+        rotate_back_query_point_array = data['predictions'][
+            'rotate_back_query_point_array']
 
         # Bx#pointx3 -[feature_encoder]-> BxMxC and BxMx3
-        origin_encode_feature, origin_coarse_point_cloud = self.feature_encoder(
-            origin_query_point_array)
+        rotate_back_encode_feature, rotate_back_coarse_point_cloud = self.feature_encoder(
+            rotate_back_query_point_array)
 
-        data['predictions']['origin_encode_feature'] = origin_encode_feature
         data['predictions'][
-            'origin_coarse_point_cloud'] = origin_coarse_point_cloud
+            'rotate_back_encode_feature'] = rotate_back_encode_feature
+        data['predictions'][
+            'rotate_back_coarse_point_cloud'] = rotate_back_coarse_point_cloud
         return data
 
-    def embedOriginPoints(self, data):
+    def embedRotateBackPoints(self, data):
         # Bx#pointx3
-        origin_query_point_array = data['predictions'][
-            'origin_query_point_array']
+        rotate_back_query_point_array = data['predictions'][
+            'rotate_back_query_point_array']
         # BxMx3
-        origin_coarse_point_cloud = data['predictions'][
-            'origin_coarse_point_cloud']
+        rotate_back_coarse_point_cloud = data['predictions'][
+            'rotate_back_coarse_point_cloud']
 
         # Bx#pointx3 -[fps]-> BxMx3
-        fps_origin_query_point_array = fps(origin_query_point_array,
-                                           self.num_query)
+        fps_rotate_back_query_point_array = fps(rotate_back_query_point_array,
+                                                self.num_query)
 
         # BxMx3 + BxMx3 -[cat]-> Bx2Mx3
-        origin_coarse_points = torch.cat(
-            [origin_coarse_point_cloud, fps_origin_query_point_array],
-            dim=1).contiguous()
+        rotate_back_coarse_points = torch.cat([
+            rotate_back_coarse_point_cloud, fps_rotate_back_query_point_array
+        ],
+                                              dim=1).contiguous()
 
-        data['predictions']['origin_coarse_points'] = origin_coarse_points
+        data['predictions'][
+            'rotate_back_coarse_points'] = rotate_back_coarse_points
 
         if self.training:
-            data = self.lossOriginComplete(data)
+            data = self.lossRotateBackComplete(data)
         return data
 
-    def lossOriginComplete(self, data):
-        origin_point_array = data['predictions']['origin_point_array']
-        origin_coarse_points = data['predictions']['origin_coarse_points']
+    def lossRotateBackComplete(self, data):
+        rotate_back_point_array = data['predictions'][
+            'rotate_back_point_array']
+        rotate_back_coarse_points = data['predictions'][
+            'rotate_back_coarse_points']
 
-        loss_origin_coarse = self.loss_func(origin_coarse_points,
-                                            origin_point_array)
+        loss_rotate_back_coarse = self.loss_func(rotate_back_coarse_points,
+                                                 rotate_back_point_array)
 
-        data['losses']['loss_origin_coarse'] = loss_origin_coarse
+        data['losses']['loss_rotate_back_coarse'] = loss_rotate_back_coarse
         return data
 
-    def decodeOriginPointsFeature(self, data):
+    def decodeRotateBackPointsFeature(self, data):
         # BxMxC
-        origin_encode_feature = data['predictions']['origin_encode_feature']
+        rotate_back_encode_feature = data['predictions'][
+            'rotate_back_encode_feature']
         # BxMx3
-        origin_coarse_point_cloud = data['predictions'][
-            'origin_coarse_point_cloud']
+        rotate_back_coarse_point_cloud = data['predictions'][
+            'rotate_back_coarse_point_cloud']
 
-        B, M, C = data['predictions']['origin_encode_feature'].shape
+        B, M, C = data['predictions']['rotate_back_encode_feature'].shape
 
         # BxMxC -[transpose]-> BxCxM -[increase_dim]-> Bx1024xM -[transpose]-> BxMx1024
-        origin_points_feature = self.increase_dim(
-            origin_encode_feature.transpose(1, 2)).transpose(1, 2)
+        rotate_back_points_feature = self.increase_dim(
+            rotate_back_encode_feature.transpose(1, 2)).transpose(1, 2)
 
         # BxMx1024 -[max]-> Bx1024
-        origin_global_points_feature = torch.max(origin_points_feature,
-                                                 dim=1)[0]
+        rotate_back_global_points_feature = torch.max(
+            rotate_back_points_feature, dim=1)[0]
 
         # Bx1024 -[unsqueeze]-> Bx1x1024 -[expand]-> BxMx1024
-        origin_replicate_global_points_feature = origin_global_points_feature.unsqueeze(
+        rotate_back_replicate_global_points_feature = rotate_back_global_points_feature.unsqueeze(
             -2).expand(-1, M, -1)
 
         # BxMx1024 + BxMxC + BxMx3 -[cat]-> BxMx(C+1027)
-        origin_global_feature = torch.cat([
-            origin_replicate_global_points_feature, origin_encode_feature,
-            origin_coarse_point_cloud
+        rotate_back_global_feature = torch.cat([
+            rotate_back_replicate_global_points_feature,
+            rotate_back_encode_feature, rotate_back_coarse_point_cloud
         ],
-                                          dim=-1)
+                                               dim=-1)
 
         # BxMx(C+1027) -[reshape]-> BMx(C+1027) -[reduce_map]-> BMxC
-        origin_reduce_global_feature = self.reduce_map(
-            origin_global_feature.reshape(B * M, -1))
+        rotate_back_reduce_global_feature = self.reduce_map(
+            rotate_back_global_feature.reshape(B * M, -1))
 
         data['predictions'][
-            'origin_reduce_global_feature'] = origin_reduce_global_feature
+            'rotate_back_reduce_global_feature'] = rotate_back_reduce_global_feature
         return data
 
-    def encodeOriginScale(self, data):
+    def encodeRotateBackScale(self, data):
         # BMxC
-        origin_reduce_global_feature = data['predictions'][
-            'origin_reduce_global_feature']
+        rotate_back_reduce_global_feature = data['predictions'][
+            'rotate_back_reduce_global_feature']
 
-        B, M, C = data['predictions']['origin_encode_feature'].shape
+        B, M, C = data['predictions']['rotate_back_encode_feature'].shape
 
         # BMxC -[reshape]-> BxMCx1 -[bbox_feature_encoder]-> BxCx1
-        origin_bbox_feature = self.bbox_feature_encoder(
-            origin_reduce_global_feature.reshape(B, -1, 1))
+        rotate_back_bbox_feature = self.bbox_feature_encoder(
+            rotate_back_reduce_global_feature.reshape(B, -1, 1))
 
         # BxCx1 -[scale_decoder]-> Bx3x1 -[reshape]-> Bx3
-        scale_inv = self.scale_decoder(origin_bbox_feature).reshape(B, -1)
+        scale_inv = self.scale_decoder(rotate_back_bbox_feature).reshape(B, -1)
 
         data['predictions']['scale_inv'] = scale_inv
 
         if self.training:
-            data = self.lossOriginScale(data)
+            data = self.lossRotateBackScale(data)
         return data
 
-    def lossOriginScale(self, data):
+    def lossRotateBackScale(self, data):
         scale_inv = data['predictions']['scale_inv']
         gt_scale_inv = data['inputs']['scale_inv']
 
@@ -211,15 +255,16 @@ class PointsShapeNet(nn.Module):
         return data
 
     @torch.no_grad()
-    def transBackQueryPoints(self, data):
-        origin_point_array = data['predictions']['origin_point_array']
+    def scaleBackPoints(self, data):
+        rotate_back_point_array = data['predictions'][
+            'rotate_back_point_array']
         # Bx#pointx3
-        origin_query_point_array = data['predictions'][
-            'origin_query_point_array']
+        rotate_back_query_point_array = data['predictions'][
+            'rotate_back_query_point_array']
         # Bx3
         scale_inv = data['predictions']['scale_inv']
 
-        device = origin_query_point_array.device
+        device = rotate_back_query_point_array.device
 
         trans_back_points_list = []
         query_points_list = []
@@ -228,17 +273,17 @@ class PointsShapeNet(nn.Module):
 
         translate = torch.tensor([0.0, 0.0, 0.0],
                                  dtype=torch.float32).to(device)
-        euler_angle = torch.tensor([1.0, 1.0, 1.0],
+        euler_angle = torch.tensor([0.0, 0.0, 0.0],
                                    dtype=torch.float32).to(device)
-        for i in range(origin_query_point_array.shape[0]):
-            origin_points = origin_point_array[i]
-            origin_query_points = origin_query_point_array[i]
+        for i in range(rotate_back_query_point_array.shape[0]):
+            rotate_back_points = rotate_back_point_array[i]
+            rotate_back_query_points = rotate_back_query_point_array[i]
             scale = scale_inv[i]
 
-            trans_back_points = transPointArray(origin_points, translate,
+            trans_back_points = transPointArray(rotate_back_points, translate,
                                                 euler_angle, scale, True,
                                                 translate)
-            query_points = transPointArray(origin_query_points, translate,
+            query_points = transPointArray(rotate_back_query_points, translate,
                                            euler_angle, scale, True, translate)
 
             min_point = torch.min(trans_back_points, 0)[0]
@@ -438,7 +483,14 @@ class PointsShapeNet(nn.Module):
         if not self.training:
             return data
 
-        self.setWeight(data, 'loss_origin_coarse', 1000)
+        self.setWeight(data, 'loss_origin_euler_angle_inv', 1)
+        self.setWeight(data, 'loss_origin_query_euler_angle_inv', 1)
+        self.setWeight(data, 'loss_partial_complete_euler_angle_inv_diff', 1)
+
+        self.setWeight(data, 'loss_decode_origin_udf', 1)
+        self.setWeight(data, 'loss_decode_origin_query_udf', 1)
+
+        self.setWeight(data, 'loss_rotate_back_coarse', 1000)
 
         self.setWeight(data, 'loss_scale_inv_l1', 1)
 
@@ -453,17 +505,19 @@ class PointsShapeNet(nn.Module):
     def forward(self, data):
         data = self.moveToOrigin(data)
 
+        data = self.rotate_net(data)
+
         data = self.rotateBackPoints(data)
 
-        data = self.encodeOriginPoints(data)
+        data = self.encodeRotateBackPoints(data)
 
-        data = self.embedOriginPoints(data)
+        data = self.embedRotateBackPoints(data)
 
-        data = self.decodeOriginPointsFeature(data)
+        data = self.decodeRotateBackPointsFeature(data)
 
-        data = self.encodeOriginScale(data)
+        data = self.encodeRotateBackScale(data)
 
-        data = self.transBackQueryPoints(data)
+        data = self.scaleBackPoints(data)
 
         data = self.encodePoints(data)
 
