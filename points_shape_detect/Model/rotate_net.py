@@ -107,9 +107,9 @@ class RotateNet(nn.Module):
         # Bx32x32
         origin_query_udf = data['predictions']['origin_query_udf']
 
-        origin_shape_code = self.shape_encoder(origin_udf.unsqueeze(0))
+        origin_shape_code = self.shape_encoder(origin_udf.unsqueeze(1))
         origin_query_shape_code = self.shape_encoder(
-            origin_query_udf.unsqueeze(0))
+            origin_query_udf.unsqueeze(1))
 
         data['predictions']['origin_shape_code'] = origin_shape_code
         data['predictions'][
