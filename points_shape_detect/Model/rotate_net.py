@@ -10,6 +10,7 @@ from points_shape_detect.Model.resnet_encoder import ResNetEncoder
 from points_shape_detect.Model.resnet_decoder import ResNetDecoder
 
 from points_shape_detect.Method.trans import transPointArray
+from points_shape_detect.Method.weight import setWeight
 
 
 class RotateNet(nn.Module):
@@ -31,50 +32,49 @@ class RotateNet(nn.Module):
 
     @torch.no_grad()
     def generateUDFWithGT(self, data):
-        origin_point_array = data['predictions']['origin_point_array']
-        origin_query_point_array = data['predictions'][
-            'origin_query_point_array']
+        trans_point_array = data['inputs']['trans_point_array']
+        trans_query_point_array = data['inputs']['trans_query_point_array']
         gt_euler_angle_inv = data['inputs']['euler_angle_inv']
 
-        device = origin_query_point_array.device
+        device = trans_query_point_array.device
 
-        origin_udf_list = []
-        origin_query_udf_list = []
+        trans_udf_list = []
+        trans_query_udf_list = []
         rotate_back_udf_list = []
         rotate_back_query_udf_list = []
 
         translate = torch.tensor([0.0, 0.0, 0.0],
                                  dtype=torch.float32).to(device)
         scale = torch.tensor([1.0, 1.0, 1.0], dtype=torch.float32).to(device)
-        for i in range(origin_query_point_array.shape[0]):
-            origin_points = origin_point_array[i]
-            origin_query_points = origin_query_point_array[i]
+        for i in range(trans_query_point_array.shape[0]):
+            trans_points = trans_point_array[i]
+            trans_query_points = trans_query_point_array[i]
             euler_angle = gt_euler_angle_inv[i]
 
-            rotate_back_points = transPointArray(origin_points, translate,
+            rotate_back_points = transPointArray(trans_points, translate,
                                                  euler_angle, scale, True,
                                                  translate)
-            rotate_back_query_points = transPointArray(origin_query_points,
+            rotate_back_query_points = transPointArray(trans_query_points,
                                                        translate, euler_angle,
                                                        scale, True, translate)
-            origin_udf = getPointUDF(origin_points)
-            origin_query_udf = getPointUDF(origin_query_points)
+            trans_udf = getPointUDF(trans_points)
+            trans_query_udf = getPointUDF(trans_query_points)
             rotate_back_udf = getPointUDF(rotate_back_points)
             rotate_back_query_udf = getPointUDF(rotate_back_query_points)
 
-            origin_udf_list.append(origin_udf.unsqueeze(0))
-            origin_query_udf_list.append(origin_query_udf.unsqueeze(0))
+            trans_udf_list.append(trans_udf.unsqueeze(0))
+            trans_query_udf_list.append(trans_query_udf.unsqueeze(0))
             rotate_back_udf_list.append(rotate_back_udf.unsqueeze(0))
             rotate_back_query_udf_list.append(
                 rotate_back_query_udf.unsqueeze(0))
 
-        origin_udf = torch.cat(origin_udf_list).detach()
-        origin_query_udf = torch.cat(origin_query_udf_list).detach()
+        trans_udf = torch.cat(trans_udf_list).detach()
+        trans_query_udf = torch.cat(trans_query_udf_list).detach()
         rotate_back_udf = torch.cat(rotate_back_udf_list).detach()
         rotate_back_query_udf = torch.cat(rotate_back_query_udf_list).detach()
 
-        data['predictions']['origin_udf'] = origin_udf
-        data['predictions']['origin_query_udf'] = origin_query_udf
+        data['predictions']['trans_udf'] = trans_udf
+        data['predictions']['trans_query_udf'] = trans_query_udf
         data['predictions']['rotate_back_udf'] = rotate_back_udf
         data['predictions']['rotate_back_query_udf'] = rotate_back_query_udf
         return data
@@ -84,36 +84,39 @@ class RotateNet(nn.Module):
         if self.training:
             return self.generateUDFWithGT(data)
 
-        origin_query_point_array = data['predictions'][
-            'origin_query_point_array']
+        trans_query_point_array = data['inputs']['trans_query_point_array']
 
-        device = origin_query_point_array.device
+        device = trans_query_point_array.device
 
-        origin_query_udf_list = []
+        trans_query_udf_list = []
 
-        for i in range(origin_query_point_array.shape[0]):
-            origin_query_udf = getPointUDF(origin_query_points)
+        translate = torch.tensor([0.0, 0.0, 0.0],
+                                 dtype=torch.float32).to(device)
+        scale = torch.tensor([1.0, 1.0, 1.0], dtype=torch.float32).to(device)
+        for i in range(trans_query_point_array.shape[0]):
+            trans_query_points = trans_query_point_array[i]
 
-            origin_query_udf_list.append(origin_query_udf.unsqueeze(0))
+            trans_query_udf = getPointUDF(trans_query_points)
 
-        origin_query_udf = torch.cat(origin_query_udf_list).detach()
+            trans_query_udf_list.append(trans_query_udf.unsqueeze(0))
 
-        data['predictions']['origin_query_udf'] = origin_query_udf
+        trans_query_udf = torch.cat(trans_query_udf_list).detach()
+
+        data['predictions']['trans_query_udf'] = trans_query_udf
         return data
 
     def encodeQueryUDFWithGT(self, data):
         # Bx32x32
-        origin_udf = data['predictions']['origin_udf']
+        trans_udf = data['predictions']['trans_udf']
         # Bx32x32
-        origin_query_udf = data['predictions']['origin_query_udf']
+        trans_query_udf = data['predictions']['trans_query_udf']
 
-        origin_shape_code = self.shape_encoder(origin_udf.unsqueeze(1))
-        origin_query_shape_code = self.shape_encoder(
-            origin_query_udf.unsqueeze(1))
+        trans_shape_code = self.shape_encoder(trans_udf.unsqueeze(1))
+        trans_query_shape_code = self.shape_encoder(
+            trans_query_udf.unsqueeze(1))
 
-        data['predictions']['origin_shape_code'] = origin_shape_code
-        data['predictions'][
-            'origin_query_shape_code'] = origin_query_shape_code
+        data['predictions']['trans_shape_code'] = trans_shape_code
+        data['predictions']['trans_query_shape_code'] = trans_query_shape_code
         return data
 
     def encodeQueryUDF(self, data):
@@ -121,31 +124,30 @@ class RotateNet(nn.Module):
             return self.encodeQueryUDFWithGT(data)
 
         # Bx32x32
-        origin_query_udf = data['predictions']['origin_query_udf']
+        trans_query_udf = data['predictions']['trans_query_udf']
 
-        origin_query_shape_code = self.shape_encoder(origin_query_udf)
+        trans_query_shape_code = self.shape_encoder(
+            trans_query_udf.unsqueeze(1))
 
-        data['predictions'][
-            'origin_query_shape_code'] = origin_query_shape_code
+        data['predictions']['trans_query_shape_code'] = trans_query_shape_code
         return data
 
     def encodeRotateWithGT(self, data):
         # Bxself.feature_dim
-        origin_shape_code = data['predictions']['origin_shape_code']
+        trans_shape_code = data['predictions']['trans_shape_code']
         # Bxself.feature_dim
-        origin_query_shape_code = data['predictions'][
-            'origin_query_shape_code']
+        trans_query_shape_code = data['predictions']['trans_query_shape_code']
 
-        B, C = data['predictions']['origin_query_shape_code'].shape
+        B, C = data['predictions']['trans_query_shape_code'].shape
 
-        origin_euler_angle_inv = self.euler_angle_encoder(
-            origin_shape_code.unsqueeze(-1)).reshape(B, -1)
-        origin_query_euler_angle_inv = self.euler_angle_encoder(
-            origin_query_shape_code.unsqueeze(-1)).reshape(B, -1)
+        trans_euler_angle_inv = self.euler_angle_encoder(
+            trans_shape_code.unsqueeze(-1)).reshape(B, -1)
+        trans_query_euler_angle_inv = self.euler_angle_encoder(
+            trans_query_shape_code.unsqueeze(-1)).reshape(B, -1)
 
-        data['predictions']['origin_euler_angle_inv'] = origin_euler_angle_inv
+        data['predictions']['trans_euler_angle_inv'] = trans_euler_angle_inv
         data['predictions'][
-            'origin_query_euler_angle_inv'] = origin_query_euler_angle_inv
+            'trans_query_euler_angle_inv'] = trans_query_euler_angle_inv
 
         if self.training:
             data = self.lossRotate(data)
@@ -156,92 +158,49 @@ class RotateNet(nn.Module):
             return self.encodeRotateWithGT(data)
 
         # Bxself.feature_dim
-        origin_query_shape_code = data['predictions'][
-            'origin_query_shape_code']
+        trans_query_shape_code = data['predictions']['trans_query_shape_code']
 
-        B, C = data['predictions']['origin_query_shape_code'].shape
+        B, C = data['predictions']['trans_query_shape_code'].shape
 
-        origin_query_euler_angle_inv = self.euler_angle_encoder(
-            origin_query_shape_code.unsqueeze(-1)).reshape(B, -1)
+        trans_query_euler_angle_inv = self.euler_angle_encoder(
+            trans_query_shape_code.unsqueeze(-1)).reshape(B, -1)
 
         data['predictions'][
-            'origin_query_euler_angle_inv'] = origin_query_euler_angle_inv
+            'trans_query_euler_angle_inv'] = trans_query_euler_angle_inv
         return data
 
     def lossRotate(self, data):
-        origin_euler_angle_inv = data['predictions']['origin_euler_angle_inv']
-        origin_query_euler_angle_inv = data['predictions'][
-            'origin_query_euler_angle_inv']
+        trans_euler_angle_inv = data['predictions']['trans_euler_angle_inv']
+        trans_query_euler_angle_inv = data['predictions'][
+            'trans_query_euler_angle_inv']
         gt_euler_angle_inv = data['inputs']['euler_angle_inv']
 
-        loss_origin_euler_angle_inv = self.l1_loss(origin_euler_angle_inv,
-                                                   gt_euler_angle_inv)
-        loss_origin_query_euler_angle_inv = self.l1_loss(
-            origin_query_euler_angle_inv, gt_euler_angle_inv)
+        loss_trans_euler_angle_inv = self.l1_loss(trans_euler_angle_inv,
+                                                  gt_euler_angle_inv)
+        loss_trans_query_euler_angle_inv = self.l1_loss(
+            trans_query_euler_angle_inv, gt_euler_angle_inv)
         loss_partial_complete_euler_angle_inv_diff = self.l1_loss(
-            origin_euler_angle_inv, origin_query_euler_angle_inv)
+            trans_euler_angle_inv, trans_query_euler_angle_inv)
 
         data['losses'][
-            'loss_origin_euler_angle_inv'] = loss_origin_euler_angle_inv
+            'loss_trans_euler_angle_inv'] = loss_trans_euler_angle_inv
         data['losses'][
-            'loss_origin_query_euler_angle_inv'] = loss_origin_query_euler_angle_inv
+            'loss_trans_query_euler_angle_inv'] = loss_trans_query_euler_angle_inv
         data['losses'][
             'loss_partial_complete_euler_angle_inv_diff'] = loss_partial_complete_euler_angle_inv_diff
         return data
 
-    @torch.no_grad()
-    def rotateBackPoints(self, data):
-        origin_point_array = data['predictions']['origin_point_array']
-        # Bx#pointx3
-        origin_query_point_array = data['predictions'][
-            'origin_query_point_array']
-        euler_angle_inv = data['predictions']['origin_query_euler_angle_inv']
-
-        device = origin_query_point_array.device
-
-        rotate_back_points_list = []
-        rotate_back_query_points_list = []
-
-        translate = torch.tensor([0.0, 0.0, 0.0],
-                                 dtype=torch.float32).to(device)
-        scale = torch.tensor([1.0, 1.0, 1.0], dtype=torch.float32).to(device)
-        for i in range(origin_query_point_array.shape[0]):
-            origin_points = origin_point_array[i]
-            origin_query_points = origin_query_point_array[i]
-            euler_angle = euler_angle_inv[i]
-
-            rotate_back_points = transPointArray(origin_points, translate,
-                                                 euler_angle, scale, True,
-                                                 translate)
-            rotate_back_query_points = transPointArray(origin_query_points,
-                                                       translate, euler_angle,
-                                                       scale, True, translate)
-
-            rotate_back_points_list.append(rotate_back_points.unsqueeze(0))
-            rotate_back_query_points_list.append(
-                rotate_back_query_points.unsqueeze(0))
-
-        rotate_back_point_array = torch.cat(rotate_back_points_list).detach()
-        rotate_back_query_point_array = torch.cat(
-            rotate_back_query_points_list).detach()
-
-        data['predictions'][
-            'rotate_back_point_array'] = rotate_back_point_array
-        data['predictions'][
-            'rotate_back_query_point_array'] = rotate_back_query_point_array
-        return data
-
     def decodeShapeCodeWithGT(self, data):
-        origin_shape_code = data['predictions']['origin_shape_code']
-        origin_query_shape_code = data['predictions'][
-            'origin_query_shape_code']
+        trans_shape_code = data['predictions']['trans_shape_code']
+        trans_query_shape_code = data['predictions']['trans_query_shape_code']
 
-        decode_origin_udf = self.shape_decoder(origin_shape_code)
-        decode_origin_query_udf = self.shape_decoder(origin_query_shape_code)
+        decode_trans_udf = torch.squeeze(self.shape_decoder(trans_shape_code),
+                                         1)
+        decode_trans_query_udf = torch.squeeze(
+            self.shape_decoder(trans_query_shape_code), 1)
 
-        data['predictions']['decode_origin_udf'] = decode_origin_udf
-        data['predictions'][
-            'decode_origin_query_udf'] = decode_origin_query_udf
+        data['predictions']['decode_trans_udf'] = decode_trans_udf
+        data['predictions']['decode_trans_query_udf'] = decode_trans_query_udf
 
         self.lossUDF(data)
         return data
@@ -250,31 +209,39 @@ class RotateNet(nn.Module):
         if self.training:
             return self.decodeShapeCodeWithGT(data)
 
-        origin_query_shape_code = data['predictions'][
-            'origin_query_shape_code']
+        trans_query_shape_code = data['predictions']['trans_query_shape_code']
 
-        decode_origin_query_udf = self.shape_decoder(
-            origin_query_shape_code).squeeze(1)
+        decode_trans_query_udf = torch.squeeze(
+            self.shape_decoder(trans_query_shape_code), 1)
 
-        data['predictions'][
-            'decode_origin_query_udf'] = decode_origin_query_udf
+        data['predictions']['decode_trans_query_udf'] = decode_trans_query_udf
         return data
 
     def lossUDF(self, data):
         rotate_back_udf = data['predictions']['rotate_back_udf']
         rotate_back_query_udf = data['predictions']['rotate_back_query_udf']
-        decode_origin_udf = data['predictions']['decode_origin_udf']
-        decode_origin_query_udf = data['predictions'][
-            'decode_origin_query_udf']
+        decode_trans_udf = data['predictions']['decode_trans_udf']
+        decode_trans_query_udf = data['predictions']['decode_trans_query_udf']
 
-        loss_decode_origin_udf = self.l1_loss(decode_origin_udf,
-                                              rotate_back_udf)
-        loss_decode_origin_query_udf = self.l1_loss(decode_origin_query_udf,
-                                                    rotate_back_query_udf)
+        loss_decode_trans_udf = self.l1_loss(decode_trans_udf, rotate_back_udf)
+        loss_decode_trans_query_udf = self.l1_loss(decode_trans_query_udf,
+                                                   rotate_back_query_udf)
 
-        data['losses']['loss_decode_origin_udf'] = loss_decode_origin_udf
+        data['losses']['loss_decode_trans_udf'] = loss_decode_trans_udf
         data['losses'][
-            'loss_decode_origin_query_udf'] = loss_decode_origin_query_udf
+            'loss_decode_trans_query_udf'] = loss_decode_trans_query_udf
+        return data
+
+    def addWeight(self, data):
+        if not self.training:
+            return data
+
+        setWeight(data, 'loss_trans_euler_angle_inv', 1)
+        setWeight(data, 'loss_trans_query_euler_angle_inv', 1)
+        setWeight(data, 'loss_partial_complete_euler_angle_inv_diff', 1)
+
+        setWeight(data, 'loss_decode_trans_udf', 1000)
+        setWeight(data, 'loss_decode_trans_query_udf', 1000)
         return data
 
     def forward(self, data):
