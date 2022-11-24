@@ -10,6 +10,8 @@ from points_shape_detect.Data.bbox import BBox
 
 from points_shape_detect.Method.bbox import getOpen3DBBox, getOpen3DBBoxFromBBox
 
+from udf_generate.Method.udfs import getVisualUDF
+
 
 def getPCDFromPointArray(point_array, color=None):
     pcd = o3d.geometry.PointCloud()
@@ -87,6 +89,34 @@ def renderRebuildPatchPoints(data):
     pcd.points = o3d.utility.Vector3dVector(all_points)
     pcd.colors = o3d.utility.Vector3dVector(all_colors)
     o3d.visualization.draw_geometries([pcd])
+    return True
+
+
+def renderRotateBackPoints(data):
+    assert 'origin_udf' in data['predictions'].keys()
+    assert 'origin_query_udf' in data['predictions'].keys()
+    assert 'rotate_back_udf' in data['predictions'].keys()
+    assert 'rotate_back_query_udf' in data['predictions'].keys()
+
+    origin_udf = data['predictions']['origin_udf'][0].cpu().numpy()
+    origin_query_udf = data['predictions']['origin_query_udf'][0].cpu().numpy()
+    rotate_back_udf = data['predictions']['rotate_back_udf'][0].cpu().numpy()
+    rotate_back_query_udf = data['predictions']['rotate_back_query_udf'][
+        0].cpu().numpy()
+
+    origin_udf_pcd = getVisualUDF(origin_udf)
+    origin_query_udf_pcd = getVisualUDF(origin_query_udf)
+    rotate_back_udf_pcd = getVisualUDF(rotate_back_udf)
+    rotate_back_query_udf_pcd = getVisualUDF(rotate_back_query_udf)
+
+    origin_query_udf_pcd.translate([0, 0, 1])
+    rotate_back_udf_pcd.translate([1, 0, 0])
+    rotate_back_query_udf_pcd.translate([1, 0, 1])
+
+    o3d.visualization.draw_geometries([
+        origin_udf_pcd, origin_query_udf_pcd, rotate_back_udf_pcd,
+        rotate_back_query_udf_pcd
+    ])
     return True
 
 
