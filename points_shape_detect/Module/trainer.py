@@ -24,8 +24,11 @@ from points_shape_detect.Method.render import (renderPointArray,
 from points_shape_detect.Method.sample import seprate_point_cloud
 from points_shape_detect.Method.time import getCurrentTime
 from points_shape_detect.Method.trans import getInverseTrans, transPointArray
-from points_shape_detect.Model.points_shape_net import PointsShapeNet
 from points_shape_detect.Scheduler.bn_momentum import BNMomentumScheduler
+
+from points_shape_detect.Model.rotate_net import RotateNet
+from points_shape_detect.Model.bbox_net import BBoxNet
+from points_shape_detect.Model.points_shape_net import PointsShapeNet
 
 
 def worker_init_fn(worker_id):
@@ -35,7 +38,7 @@ def worker_init_fn(worker_id):
 class Trainer(object):
 
     def __init__(self):
-        self.batch_size = 12
+        self.batch_size = 24
         self.lr = 5e-4
         self.weight_decay = 5e-4
         self.decay_step = 21
@@ -49,7 +52,9 @@ class Trainer(object):
         self.loss_min = float('inf')
         self.log_folder_name = getCurrentTime()
 
-        self.model = PointsShapeNet().cuda()
+        self.model = BBoxNet().cuda()
+        #  self.model = RotateNet().cuda()
+        #  self.model = PointsShapeNet().cuda()
 
         self.dataset = CADDataset()
         self.dataloader = DataLoader(self.dataset,
