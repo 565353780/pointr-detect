@@ -18,6 +18,7 @@ from points_shape_detect.Method.path import (createFileFolder, removeFile,
                                              renameFile)
 from points_shape_detect.Method.render import (renderPointArray,
                                                renderPointArrayList,
+                                               renderRotateBackPoints,
                                                renderPredictBBox,
                                                renderTransBackPoints)
 from points_shape_detect.Method.sample import seprate_point_cloud
@@ -34,7 +35,7 @@ def worker_init_fn(worker_id):
 class Trainer(object):
 
     def __init__(self):
-        self.batch_size = 20
+        self.batch_size = 16
         self.lr = 5e-5
         self.weight_decay = 5e-5
         self.decay_step = 21
@@ -76,7 +77,7 @@ class Trainer(object):
                                             "/")
         return True
 
-    def loadModel(self, model_file_path):
+    def loadModel(self, model_file_path, resume_model_only=False):
         if not os.path.exists(model_file_path):
             self.loadSummaryWriter()
             print("[WARN][Trainer::loadModel]")
@@ -85,11 +86,21 @@ class Trainer(object):
 
         model_dict = torch.load(model_file_path)
 
-        self.model.load_state_dict(model_dict['model'])
-        self.optimizer.load_state_dict(model_dict['optimizer'])
-        self.step = model_dict['step']
-        self.loss_min = model_dict['loss_min']
-        self.log_folder_name = model_dict['log_folder_name']
+        from collections import OrderedDict
+        new_state_dict = OrderedDict()
+        for k, v in model_dict['model'].items():
+            if 'euler_angle_decoder' in k:
+                continue
+            new_state_dict[k] = v
+
+        #  self.model.load_state_dict(model_dict['model'])
+        self.model.load_state_dict(new_state_dict)
+
+        if not resume_model_only:
+            self.optimizer.load_state_dict(model_dict['optimizer'])
+            self.step = model_dict['step']
+            self.loss_min = model_dict['loss_min']
+            self.log_folder_name = model_dict['log_folder_name']
 
         self.loadSummaryWriter()
         print("[INFO][Trainer::loadModel]")
@@ -139,7 +150,6 @@ class Trainer(object):
             toCuda(data)
             data = self.preProcessData(data)
 
-            renderPointArray(data['inputs']['trans_point_array'][0])
             renderPointArrayList([
                 data['inputs']['trans_query_point_array'][0],
                 data['inputs']['trans_point_array'][0],
@@ -148,6 +158,7 @@ class Trainer(object):
             data = self.model(data)
 
             print(data['predictions'].keys())
+            renderRotateBackPoints(data)
             renderTransBackPoints(data)
             #  renderPredictBBox(data)
         return True
