@@ -28,25 +28,29 @@ def seprate_point_cloud(xyz, crop, fixed_points=None, padding_zeros=False):
     '''
      seprate point cloud: usage : using to generate the incomplete point cloud with a setted number.
     '''
+    assert 2 <= len(xyz.shape) <= 3
+    if len(xyz.shape) == 2:
+        n, c = xyz.shape
+    else:
+        _, n, c = xyz.shape
+    assert c == 3
+
+    if crop == 0:
+        return xyz, None
+    if isinstance(crop, list):
+        num_crop = random.randint(int(n * crop[0]), int(n * crop[1]))
+        if num_crop == 0:
+            return xyz, None
+
     ndarray_input = False
     if isinstance(xyz, np.ndarray):
         ndarray_input = True
         xyz = torch.from_numpy(xyz.reshape(1, -1, 3)).float().cuda()
 
-    _, n, c = xyz.shape
-
-    assert c == 3
-    if crop == 0:
-        return xyz, None
-
     INPUT = []
     CROP = []
     for points in xyz:
-        if isinstance(crop, list):
-            num_crop = random.randint(int(n * crop[0]), int(n * crop[1]))
-            if num_crop == 0:
-                return xyz, None
-        else:
+        if not isinstance(crop, list):
             num_crop = int(n * crop)
 
         points = points.unsqueeze(0)
