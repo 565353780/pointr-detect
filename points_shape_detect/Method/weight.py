@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import torch
 
 def cutLoss(data, loss_name, min_value=None, max_value=None):
     if min_value is not None:
