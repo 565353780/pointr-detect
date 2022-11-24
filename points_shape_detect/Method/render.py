@@ -6,11 +6,11 @@ import numpy as np
 import open3d as o3d
 from random import randint
 
+from udf_generate.Method.udfs import getVisualUDF
+
 from points_shape_detect.Data.bbox import BBox
 
 from points_shape_detect.Method.bbox import getOpen3DBBox, getOpen3DBBoxFromBBox
-
-from udf_generate.Method.udfs import getVisualUDF
 
 
 def getPCDFromPointArray(point_array, color=None):
@@ -98,6 +98,8 @@ def renderRotateBackPoints(data):
     assert 'rotate_back_udf' in data['predictions'].keys()
     assert 'rotate_back_query_udf' in data['predictions'].keys()
 
+    render_list = []
+
     origin_udf = data['predictions']['origin_udf'][0].cpu().numpy()
     origin_query_udf = data['predictions']['origin_query_udf'][0].cpu().numpy()
     rotate_back_udf = data['predictions']['rotate_back_udf'][0].cpu().numpy()
@@ -113,10 +115,25 @@ def renderRotateBackPoints(data):
     rotate_back_udf_pcd.translate([1, 0, 0])
     rotate_back_query_udf_pcd.translate([1, 0, 1])
 
-    o3d.visualization.draw_geometries([
-        origin_udf_pcd, origin_query_udf_pcd, rotate_back_udf_pcd,
-        rotate_back_query_udf_pcd
-    ])
+    render_list.append(origin_udf_pcd)
+    render_list.append(origin_query_udf_pcd)
+    render_list.append(rotate_back_udf_pcd)
+    render_list.append(rotate_back_query_udf_pcd)
+
+    render_list.append(
+        getOpen3DBBoxFromBBox(
+            BBox.fromList([[-0.5, -0.5, -0.5], [0.5, 0.5, 0.5]])))
+    render_list.append(
+        getOpen3DBBoxFromBBox(
+            BBox.fromList([[-0.5, -0.5, 0.5], [0.5, 0.5, 1.5]])))
+    render_list.append(
+        getOpen3DBBoxFromBBox(
+            BBox.fromList([[0.5, -0.5, -0.5], [1.5, 0.5, 0.5]])))
+    render_list.append(
+        getOpen3DBBoxFromBBox(
+            BBox.fromList([[0.5, -0.5, 0.5], [1.5, 0.5, 1.5]])))
+
+    o3d.visualization.draw_geometries(render_list)
     return True
 
 
