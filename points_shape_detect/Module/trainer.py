@@ -140,7 +140,7 @@ class Trainer(object):
 
     def testTrain(self):
         test_dataloader = DataLoader(self.dataset,
-                                     batch_size=1,
+                                     batch_size=2,
                                      shuffle=False,
                                      drop_last=False,
                                      num_workers=1,
