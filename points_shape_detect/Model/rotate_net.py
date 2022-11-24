@@ -107,11 +107,9 @@ class RotateNet(nn.Module):
         # Bx32x32
         origin_query_udf = data['predictions']['origin_query_udf']
 
-        print(origin_udf.shape)
-        print(origin_query_udf.shape)
-
-        origin_shape_code = self.shape_encoder(origin_udf)
-        origin_query_shape_code = self.shape_encoder(origin_query_udf)
+        origin_shape_code = self.shape_encoder(origin_udf.unsqueeze(0))
+        origin_query_shape_code = self.shape_encoder(
+            origin_query_udf.unsqueeze(0))
 
         data['predictions']['origin_shape_code'] = origin_shape_code
         data['predictions'][
@@ -180,11 +178,15 @@ class RotateNet(nn.Module):
                                                    gt_euler_angle_inv)
         loss_origin_query_euler_angle_inv = self.l1_loss(
             origin_query_euler_angle_inv, gt_euler_angle_inv)
+        loss_partial_complete_euler_angle_inv_diff = self.l1_loss(
+            origin_euler_angle_inv, origin_query_euler_angle_inv)
 
         data['losses'][
             'loss_origin_euler_angle_inv'] = loss_origin_euler_angle_inv
         data['losses'][
             'loss_origin_query_euler_angle_inv'] = loss_origin_query_euler_angle_inv
+        data['losses'][
+            'loss_partial_complete_euler_angle_inv_diff'] = loss_partial_complete_euler_angle_inv_diff
         return data
 
     def decodeShapeCodeWithGT(self, data):
