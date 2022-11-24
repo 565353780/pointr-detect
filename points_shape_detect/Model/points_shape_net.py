@@ -45,7 +45,7 @@ class PointsShapeNet(nn.Module):
 
         self.reduce_map = nn.Linear(self.trans_dim + 1027, self.trans_dim)
 
-        self.bbox_feature_decoder = nn.Sequential(
+        self.bbox_feature_encoder = nn.Sequential(
             nn.Conv1d(self.num_query * self.trans_dim, self.trans_dim, 1),
             nn.LeakyReLU(negative_slope=0.2),
             nn.Conv1d(self.trans_dim, self.trans_dim, 1))
@@ -92,6 +92,10 @@ class PointsShapeNet(nn.Module):
         data['predictions']['origin_point_array'] = origin_point_array
         data['predictions'][
             'origin_query_point_array'] = origin_query_point_array
+        return data
+
+    def rotateBackPoints(self, data):
+        data = self.rotate_net(data)
         return data
 
     def encodeOriginPoints(self, data):
@@ -184,8 +188,8 @@ class PointsShapeNet(nn.Module):
 
         B, M, C = data['predictions']['origin_encode_feature'].shape
 
-        # BMxC -[reshape]-> BxMCx1 -[bbox_feature_decoder]-> BxCx1
-        origin_bbox_feature = self.bbox_feature_decoder(
+        # BMxC -[reshape]-> BxMCx1 -[bbox_feature_encoder]-> BxCx1
+        origin_bbox_feature = self.bbox_feature_encoder(
             origin_reduce_global_feature.reshape(B, -1, 1))
 
         # BxCx1 -[scale_decoder]-> Bx3x1 -[reshape]-> Bx3
@@ -213,8 +217,6 @@ class PointsShapeNet(nn.Module):
         origin_query_point_array = data['predictions'][
             'origin_query_point_array']
         # Bx3
-        euler_angle_inv = data['predictions']['euler_angle_inv']
-        # Bx3
         scale_inv = data['predictions']['scale_inv']
 
         device = origin_query_point_array.device
@@ -233,16 +235,11 @@ class PointsShapeNet(nn.Module):
             origin_query_points = origin_query_point_array[i]
             scale = scale_inv[i]
 
-            trans_back_points = transPointArray(origin_points,
-                                                translate,
-                                                euler_angle,
-                                                scale,
-                                                center=translate)
-            query_points = transPointArray(origin_query_points,
-                                           translate,
-                                           euler_angle,
-                                           scale,
-                                           center=translate)
+            trans_back_points = transPointArray(origin_points, translate,
+                                                euler_angle, scale, True,
+                                                translate)
+            query_points = transPointArray(origin_query_points, translate,
+                                           euler_angle, scale, True, translate)
 
             min_point = torch.min(trans_back_points, 0)[0]
             max_point = torch.max(trans_back_points, 0)[0]
@@ -317,8 +314,8 @@ class PointsShapeNet(nn.Module):
 
         B, M, C = data['predictions']['encode_feature'].shape
 
-        # BMxC -[reshape]-> BxMCx1 -[bbox_feature_decoder]-> BxCx1
-        bbox_feature = self.bbox_feature_decoder(
+        # BMxC -[reshape]-> BxMCx1 -[bbox_feature_encoder]-> BxCx1
+        bbox_feature = self.bbox_feature_encoder(
             reduce_global_feature.reshape(B, -1, 1))
 
         # BxCx1 -[bbox_decoder]-> Bx6x1 -[reshape]-> Bx6
@@ -455,6 +452,8 @@ class PointsShapeNet(nn.Module):
 
     def forward(self, data):
         data = self.moveToOrigin(data)
+
+        data = self.rotateBackPoints(data)
 
         data = self.encodeOriginPoints(data)
 
