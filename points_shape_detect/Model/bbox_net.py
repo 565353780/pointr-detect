@@ -2,13 +2,11 @@
 # -*- coding: utf-8 -*-
 
 import torch
-from pointnet2_ops import pointnet2_utils
 from torch import nn
 
 from points_shape_detect.Lib.chamfer_dist import ChamferDistanceL1
 from points_shape_detect.Loss.ious import IoULoss
 from points_shape_detect.Method.sample import fps
-from points_shape_detect.Method.trans import getInverseTrans, transPointArray
 from points_shape_detect.Model.fold import Fold
 from points_shape_detect.Model.pc_transformer import PCTransformer
 
@@ -172,7 +170,7 @@ class BBoxNet(nn.Module):
             'origin_reduce_global_feature'] = origin_reduce_global_feature
         return data
 
-    def encodeOriginScale(self, data):
+    def encodeScale(self, data):
         # BMxC
         origin_reduce_global_feature = data['predictions'][
             'origin_reduce_global_feature']
@@ -189,10 +187,10 @@ class BBoxNet(nn.Module):
         data['predictions']['scale_inv'] = scale_inv
 
         if self.training:
-            data = self.lossOriginScale(data)
+            data = self.lossScale(data)
         return data
 
-    def lossOriginScale(self, data):
+    def lossScale(self, data):
         scale_inv = data['predictions']['scale_inv']
         gt_scale_inv = data['inputs']['scale_inv']
 
@@ -312,6 +310,20 @@ class BBoxNet(nn.Module):
         data['losses']['loss_origin_fine'] = loss_origin_fine
         return data
 
+    def addWeight(self, data):
+        if not self.training:
+            return data
+
+        data = setWeight(data, 'loss_scale_inv_l1', 1)
+
+        data = setWeight(data, 'loss_origin_bbox_l1', 1000)
+        data = setWeight(data, 'loss_origin_center_l1', 1000)
+        data = setWeight(data, 'loss_origin_bbox_eiou', 10, max_value=10)
+
+        data = setWeight(data, 'loss_origin_coarse', 1000)
+        data = setWeight(data, 'loss_origin_fine', 1000)
+        return data
+
     def forward(self, data):
         data = self.moveToOrigin(data)
 
@@ -321,11 +333,13 @@ class BBoxNet(nn.Module):
 
         data = self.decodeOriginPointsFeature(data)
 
-        data = self.encodeOriginScale(data)
+        data = self.encodeScale(data)
 
         data = self.encodeOriginBBox(data)
 
         data = self.decodeOriginPatchPoints(data)
 
         data = self.embedOriginPoints(data)
+
+        data = self.addWeight(data)
         return data
