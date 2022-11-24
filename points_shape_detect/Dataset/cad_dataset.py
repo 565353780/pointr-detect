@@ -75,7 +75,7 @@ class CADDataset(Dataset):
                                                  file_name)
         return True
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx, training=True):
         cad_model_file_path = self.cad_model_file_path_list[idx]
 
         data = {'inputs': {}, 'predictions': {}, 'losses': {}, 'logs': {}}
@@ -89,24 +89,27 @@ class CADDataset(Dataset):
 
         trans_point_array = transPointArray(origin_point_array, translate,
                                             euler_angle, scale)
-        translate_inv, euler_angle_inv, scale_inv = getInverseTrans(
-            translate, euler_angle, scale)
-
-        min_point = np.min(point_array, axis=0)
-        max_point = np.max(point_array, axis=0)
-
-        bbox = np.hstack((min_point, max_point))
-        center = np.mean([min_point, max_point], axis=0)
-
         data['inputs']['trans_point_array'] = torch.from_numpy(
             trans_point_array).float()
-        data['inputs']['trans_bbox'] = torch.from_numpy(bbox).to(torch.float32)
-        data['inputs']['trans_center'] = torch.from_numpy(center).to(
-            torch.float32)
-        data['inputs']['euler_angle_inv'] = torch.from_numpy(
-            euler_angle_inv).to(torch.float32)
-        data['inputs']['scale_inv'] = torch.from_numpy(scale_inv).to(
-            torch.float32)
+
+        if training:
+            translate_inv, euler_angle_inv, scale_inv = getInverseTrans(
+                translate, euler_angle, scale)
+
+            min_point = np.min(point_array, axis=0)
+            max_point = np.max(point_array, axis=0)
+
+            bbox = np.hstack((min_point, max_point))
+            center = np.mean([min_point, max_point], axis=0)
+
+            data['inputs']['trans_bbox'] = torch.from_numpy(bbox).to(
+                torch.float32)
+            data['inputs']['trans_center'] = torch.from_numpy(center).to(
+                torch.float32)
+            data['inputs']['euler_angle_inv'] = torch.from_numpy(
+                euler_angle_inv).to(torch.float32)
+            data['inputs']['scale_inv'] = torch.from_numpy(scale_inv).to(
+                torch.float32)
         return data
 
     def __len__(self):
