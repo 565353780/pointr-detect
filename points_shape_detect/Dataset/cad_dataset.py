@@ -96,16 +96,6 @@ class CADDataset(Dataset):
             translate_inv, euler_angle_inv, scale_inv = getInverseTrans(
                 translate, euler_angle, scale)
 
-            min_point = np.min(point_array, axis=0)
-            max_point = np.max(point_array, axis=0)
-
-            bbox = np.hstack((min_point, max_point))
-            center = np.mean([min_point, max_point], axis=0)
-
-            data['inputs']['trans_bbox'] = torch.from_numpy(bbox).to(
-                torch.float32)
-            data['inputs']['trans_center'] = torch.from_numpy(center).to(
-                torch.float32)
             data['inputs']['euler_angle_inv'] = torch.from_numpy(
                 euler_angle_inv).to(torch.float32)
             data['inputs']['scale_inv'] = torch.from_numpy(scale_inv).to(
