@@ -189,6 +189,48 @@ class RotateNet(nn.Module):
             'loss_partial_complete_euler_angle_inv_diff'] = loss_partial_complete_euler_angle_inv_diff
         return data
 
+    @torch.no_grad()
+    def rotateBackPoints(self, data):
+        origin_point_array = data['predictions']['origin_point_array']
+        # Bx#pointx3
+        origin_query_point_array = data['predictions'][
+            'origin_query_point_array']
+        euler_angle_inv = data['predictions']['origin_query_euler_angle_inv']
+
+        device = origin_query_point_array.device
+
+        rotate_back_points_list = []
+        rotate_back_query_points_list = []
+
+        translate = torch.tensor([0.0, 0.0, 0.0],
+                                 dtype=torch.float32).to(device)
+        scale = torch.tensor([1.0, 1.0, 1.0], dtype=torch.float32).to(device)
+        for i in range(origin_query_point_array.shape[0]):
+            origin_points = origin_point_array[i]
+            origin_query_points = origin_query_point_array[i]
+            euler_angle = euler_angle_inv[i]
+
+            rotate_back_points = transPointArray(origin_points, translate,
+                                                 euler_angle, scale, True,
+                                                 translate)
+            rotate_back_query_points = transPointArray(origin_query_points,
+                                                       translate, euler_angle,
+                                                       scale, True, translate)
+
+            rotate_back_points_list.append(rotate_back_points.unsqueeze(0))
+            rotate_back_query_points_list.append(
+                rotate_back_query_points.unsqueeze(0))
+
+        rotate_back_point_array = torch.cat(rotate_back_points_list).detach()
+        rotate_back_query_point_array = torch.cat(
+            rotate_back_query_points_list).detach()
+
+        data['predictions'][
+            'rotate_back_point_array'] = rotate_back_point_array
+        data['predictions'][
+            'rotate_back_query_point_array'] = rotate_back_query_point_array
+        return data
+
     def decodeShapeCodeWithGT(self, data):
         origin_shape_code = data['predictions']['origin_shape_code']
         origin_query_shape_code = data['predictions'][
@@ -211,7 +253,8 @@ class RotateNet(nn.Module):
         origin_query_shape_code = data['predictions'][
             'origin_query_shape_code']
 
-        decode_origin_query_udf = self.shape_decoder(origin_query_shape_code)
+        decode_origin_query_udf = self.shape_decoder(
+            origin_query_shape_code).squeeze(1)
 
         data['predictions'][
             'decode_origin_query_udf'] = decode_origin_query_udf
@@ -240,6 +283,8 @@ class RotateNet(nn.Module):
         data = self.encodeQueryUDF(data)
 
         data = self.encodeRotate(data)
+
+        data = self.rotateBackPoints(data)
 
         data = self.decodeShapeCode(data)
         return data

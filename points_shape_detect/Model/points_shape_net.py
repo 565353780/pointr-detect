@@ -9,8 +9,10 @@ from points_shape_detect.Lib.chamfer_dist import ChamferDistanceL1
 from points_shape_detect.Loss.ious import IoULoss
 from points_shape_detect.Method.sample import fps
 from points_shape_detect.Method.trans import getInverseTrans, transPointArray
+from points_shape_detect.Method.weight import setWeight
 from points_shape_detect.Model.fold import Fold
 from points_shape_detect.Model.pc_transformer import PCTransformer
+from points_shape_detect.Model.bbox_net import BBoxNet
 from points_shape_detect.Model.rotate_net import RotateNet
 
 
@@ -18,6 +20,8 @@ class PointsShapeNet(nn.Module):
 
     def __init__(self):
         super().__init__()
+        self.bbox_net = BBoxNet()
+
         self.trans_dim = 384
         self.knn_layer = 1
         self.num_pred = 6144
@@ -92,48 +96,6 @@ class PointsShapeNet(nn.Module):
         data['predictions']['origin_point_array'] = origin_point_array
         data['predictions'][
             'origin_query_point_array'] = origin_query_point_array
-        return data
-
-    @torch.no_grad()
-    def rotateBackPoints(self, data):
-        origin_point_array = data['predictions']['origin_point_array']
-        # Bx#pointx3
-        origin_query_point_array = data['predictions'][
-            'origin_query_point_array']
-        euler_angle_inv = data['predictions']['origin_query_euler_angle_inv']
-
-        device = origin_query_point_array.device
-
-        rotate_back_points_list = []
-        rotate_back_query_points_list = []
-
-        translate = torch.tensor([0.0, 0.0, 0.0],
-                                 dtype=torch.float32).to(device)
-        scale = torch.tensor([1.0, 1.0, 1.0], dtype=torch.float32).to(device)
-        for i in range(origin_query_point_array.shape[0]):
-            origin_points = origin_point_array[i]
-            origin_query_points = origin_query_point_array[i]
-            euler_angle = euler_angle_inv[i]
-
-            rotate_back_points = transPointArray(origin_points, translate,
-                                                 euler_angle, scale, True,
-                                                 translate)
-            rotate_back_query_points = transPointArray(origin_query_points,
-                                                       translate, euler_angle,
-                                                       scale, True, translate)
-
-            rotate_back_points_list.append(rotate_back_points.unsqueeze(0))
-            rotate_back_query_points_list.append(
-                rotate_back_query_points.unsqueeze(0))
-
-        rotate_back_point_array = torch.cat(rotate_back_points_list).detach()
-        rotate_back_query_point_array = torch.cat(
-            rotate_back_query_points_list).detach()
-
-        data['predictions'][
-            'rotate_back_point_array'] = rotate_back_point_array
-        data['predictions'][
-            'rotate_back_query_point_array'] = rotate_back_query_point_array
         return data
 
     def encodeRotateBackPoints(self, data):
@@ -453,61 +415,33 @@ class PointsShapeNet(nn.Module):
         data['losses']['loss_fine'] = loss_fine
         return data
 
-    def cutLoss(self, data, loss_name, min_value=None, max_value=None):
-        if min_value is not None:
-            data['losses'][loss_name] = torch.max(
-                data['losses'][loss_name],
-                torch.tensor(min_value).to(torch.float32).to(
-                    data['losses'][loss_name].device).reshape(1))[0]
-
-        if max_value is not None:
-            data['losses'][loss_name] = torch.min(
-                data['losses'][loss_name],
-                torch.tensor(max_value).to(torch.float32).to(
-                    data['losses'][loss_name].device).reshape(1))[0]
-        return data
-
-    def setWeight(self,
-                  data,
-                  loss_name,
-                  weight,
-                  min_value=None,
-                  max_value=None):
-        if weight != 1:
-            data['losses'][loss_name] = data['losses'][loss_name] * weight
-
-        data = self.cutLoss(data, loss_name, min_value, max_value)
-        return data
-
     def addWeight(self, data):
         if not self.training:
             return data
 
-        self.setWeight(data, 'loss_origin_euler_angle_inv', 1)
-        self.setWeight(data, 'loss_origin_query_euler_angle_inv', 1)
-        self.setWeight(data, 'loss_partial_complete_euler_angle_inv_diff', 1)
+        setWeight(data, 'loss_origin_euler_angle_inv', 1)
+        setWeight(data, 'loss_origin_query_euler_angle_inv', 1)
+        setWeight(data, 'loss_partial_complete_euler_angle_inv_diff', 1)
 
-        self.setWeight(data, 'loss_decode_origin_udf', 1)
-        self.setWeight(data, 'loss_decode_origin_query_udf', 1)
+        setWeight(data, 'loss_decode_origin_udf', 1000)
+        setWeight(data, 'loss_decode_origin_query_udf', 1000)
 
-        self.setWeight(data, 'loss_rotate_back_coarse', 1000)
+        setWeight(data, 'loss_rotate_back_coarse', 100)
 
-        self.setWeight(data, 'loss_scale_inv_l1', 1)
+        setWeight(data, 'loss_scale_inv_l1', 1)
 
-        self.setWeight(data, 'loss_bbox_l1', 1000)
-        self.setWeight(data, 'loss_center_l1', 1000)
-        self.setWeight(data, 'loss_bbox_eiou', 10, max_value=10)
+        setWeight(data, 'loss_bbox_l1', 1000)
+        setWeight(data, 'loss_center_l1', 1000)
+        setWeight(data, 'loss_bbox_eiou', 10, max_value=10)
 
-        self.setWeight(data, 'loss_coarse', 1000)
-        self.setWeight(data, 'loss_fine', 1000)
+        setWeight(data, 'loss_coarse', 1000)
+        setWeight(data, 'loss_fine', 1000)
         return data
 
     def forward(self, data):
         data = self.moveToOrigin(data)
 
         data = self.rotate_net(data)
-
-        data = self.rotateBackPoints(data)
 
         data = self.encodeRotateBackPoints(data)
 
