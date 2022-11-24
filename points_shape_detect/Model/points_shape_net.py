@@ -11,6 +11,7 @@ from points_shape_detect.Method.sample import fps
 from points_shape_detect.Method.trans import getInverseTrans, transPointArray
 from points_shape_detect.Model.fold import Fold
 from points_shape_detect.Model.pc_transformer import PCTransformer
+from points_shape_detect.Model.rotate_net import RotateNet
 
 
 class PointsShapeNet(nn.Module):
@@ -23,6 +24,8 @@ class PointsShapeNet(nn.Module):
         self.num_query = 96
 
         self.fold_step = int(pow(self.num_pred // self.num_query, 0.5) + 0.5)
+
+        self.rotate_net = RotateNet()
 
         self.feature_encoder = PCTransformer(in_chans=3,
                                              embed_dim=self.trans_dim,
@@ -55,10 +58,6 @@ class PointsShapeNet(nn.Module):
                                             nn.LeakyReLU(negative_slope=0.2),
                                             nn.Conv1d(3, 3, 1))
 
-        self.euler_angle_decoder = nn.Sequential(
-            nn.Conv1d(self.trans_dim, 3, 1), nn.LeakyReLU(negative_slope=0.2),
-            nn.Conv1d(3, 3, 1))
-
         self.scale_decoder = nn.Sequential(nn.Conv1d(self.trans_dim, 3, 1),
                                            nn.LeakyReLU(negative_slope=0.2),
                                            nn.Conv1d(3, 3, 1))
@@ -68,178 +67,157 @@ class PointsShapeNet(nn.Module):
         return
 
     @torch.no_grad()
-    def transToOrigin(self, data):
+    def moveToOrigin(self, data):
         trans_point_array = data['inputs']['trans_point_array']
         # Bx#pointx3
         trans_query_point_array = data['inputs']['trans_query_point_array']
 
-        origin_trans_points_list = []
-        origin_trans_query_points_list = []
+        origin_points_list = []
+        origin_query_points_list = []
 
         for i in range(trans_query_point_array.shape[0]):
             trans_points = trans_point_array[i]
             trans_query_points = trans_query_point_array[i]
             trans_query_points_center = torch.mean(trans_query_points, 0)
 
-            origin_trans_points = trans_points - trans_query_points_center
-            origin_trans_query_points = trans_query_points - trans_query_points_center
+            origin_points = trans_points - trans_query_points_center
+            origin_query_points = trans_query_points - trans_query_points_center
 
-            origin_trans_points_list.append(origin_trans_points.unsqueeze(0))
-            origin_trans_query_points_list.append(
-                origin_trans_query_points.unsqueeze(0))
+            origin_points_list.append(origin_points.unsqueeze(0))
+            origin_query_points_list.append(origin_query_points.unsqueeze(0))
 
-        origin_trans_point_array = torch.cat(origin_trans_points_list).detach()
-        origin_trans_query_point_array = torch.cat(
-            origin_trans_query_points_list).detach()
+        origin_point_array = torch.cat(origin_points_list).detach()
+        origin_query_point_array = torch.cat(origin_query_points_list).detach()
 
+        data['predictions']['origin_point_array'] = origin_point_array
         data['predictions'][
-            'origin_trans_point_array'] = origin_trans_point_array
-        data['predictions'][
-            'origin_trans_query_point_array'] = origin_trans_query_point_array
+            'origin_query_point_array'] = origin_query_point_array
         return data
 
-    def encodeOriginTransPoints(self, data):
+    def encodeOriginPoints(self, data):
         # Bx#pointx3
-        origin_trans_query_point_array = data['predictions'][
-            'origin_trans_query_point_array']
+        origin_query_point_array = data['predictions'][
+            'origin_query_point_array']
 
         # Bx#pointx3 -[feature_encoder]-> BxMxC and BxMx3
-        origin_trans_encode_feature, origin_trans_coarse_point_cloud = self.feature_encoder(
-            origin_trans_query_point_array)
+        origin_encode_feature, origin_coarse_point_cloud = self.feature_encoder(
+            origin_query_point_array)
 
+        data['predictions']['origin_encode_feature'] = origin_encode_feature
         data['predictions'][
-            'origin_trans_encode_feature'] = origin_trans_encode_feature
-        data['predictions'][
-            'origin_trans_coarse_point_cloud'] = origin_trans_coarse_point_cloud
+            'origin_coarse_point_cloud'] = origin_coarse_point_cloud
         return data
 
-    def embedOriginTransPoints(self, data):
+    def embedOriginPoints(self, data):
         # Bx#pointx3
-        origin_trans_query_point_array = data['predictions'][
-            'origin_trans_query_point_array']
+        origin_query_point_array = data['predictions'][
+            'origin_query_point_array']
         # BxMx3
-        origin_trans_coarse_point_cloud = data['predictions'][
-            'origin_trans_coarse_point_cloud']
+        origin_coarse_point_cloud = data['predictions'][
+            'origin_coarse_point_cloud']
 
         # Bx#pointx3 -[fps]-> BxMx3
-        fps_origin_trans_query_point_array = fps(
-            origin_trans_query_point_array, self.num_query)
+        fps_origin_query_point_array = fps(origin_query_point_array,
+                                           self.num_query)
 
         # BxMx3 + BxMx3 -[cat]-> Bx2Mx3
-        origin_trans_coarse_points = torch.cat([
-            origin_trans_coarse_point_cloud, fps_origin_trans_query_point_array
-        ],
-                                               dim=1).contiguous()
+        origin_coarse_points = torch.cat(
+            [origin_coarse_point_cloud, fps_origin_query_point_array],
+            dim=1).contiguous()
 
-        data['predictions'][
-            'origin_trans_coarse_points'] = origin_trans_coarse_points
+        data['predictions']['origin_coarse_points'] = origin_coarse_points
 
         if self.training:
-            data = self.lossOriginTransComplete(data)
+            data = self.lossOriginComplete(data)
         return data
 
-    def lossOriginTransComplete(self, data):
-        origin_trans_point_array = data['predictions'][
-            'origin_trans_point_array']
-        origin_trans_coarse_points = data['predictions'][
-            'origin_trans_coarse_points']
+    def lossOriginComplete(self, data):
+        origin_point_array = data['predictions']['origin_point_array']
+        origin_coarse_points = data['predictions']['origin_coarse_points']
 
-        loss_origin_trans_coarse = self.loss_func(origin_trans_coarse_points,
-                                                  origin_trans_point_array)
+        loss_origin_coarse = self.loss_func(origin_coarse_points,
+                                            origin_point_array)
 
-        data['losses']['loss_origin_trans_coarse'] = loss_origin_trans_coarse
+        data['losses']['loss_origin_coarse'] = loss_origin_coarse
         return data
 
-    def decodeOriginTransPointsFeature(self, data):
+    def decodeOriginPointsFeature(self, data):
         # BxMxC
-        origin_trans_encode_feature = data['predictions'][
-            'origin_trans_encode_feature']
+        origin_encode_feature = data['predictions']['origin_encode_feature']
         # BxMx3
-        origin_trans_coarse_point_cloud = data['predictions'][
-            'origin_trans_coarse_point_cloud']
+        origin_coarse_point_cloud = data['predictions'][
+            'origin_coarse_point_cloud']
 
-        B, M, C = data['predictions']['origin_trans_encode_feature'].shape
+        B, M, C = data['predictions']['origin_encode_feature'].shape
 
         # BxMxC -[transpose]-> BxCxM -[increase_dim]-> Bx1024xM -[transpose]-> BxMx1024
-        origin_trans_points_feature = self.increase_dim(
-            origin_trans_encode_feature.transpose(1, 2)).transpose(1, 2)
+        origin_points_feature = self.increase_dim(
+            origin_encode_feature.transpose(1, 2)).transpose(1, 2)
 
         # BxMx1024 -[max]-> Bx1024
-        origin_trans_global_points_feature = torch.max(
-            origin_trans_points_feature, dim=1)[0]
+        origin_global_points_feature = torch.max(origin_points_feature,
+                                                 dim=1)[0]
 
         # Bx1024 -[unsqueeze]-> Bx1x1024 -[expand]-> BxMx1024
-        origin_trans_replicate_global_points_feature = origin_trans_global_points_feature.unsqueeze(
+        origin_replicate_global_points_feature = origin_global_points_feature.unsqueeze(
             -2).expand(-1, M, -1)
 
         # BxMx1024 + BxMxC + BxMx3 -[cat]-> BxMx(C+1027)
-        origin_trans_global_feature = torch.cat([
-            origin_trans_replicate_global_points_feature,
-            origin_trans_encode_feature, origin_trans_coarse_point_cloud
+        origin_global_feature = torch.cat([
+            origin_replicate_global_points_feature, origin_encode_feature,
+            origin_coarse_point_cloud
         ],
-                                                dim=-1)
+                                          dim=-1)
 
         # BxMx(C+1027) -[reshape]-> BMx(C+1027) -[reduce_map]-> BMxC
-        origin_trans_reduce_global_feature = self.reduce_map(
-            origin_trans_global_feature.reshape(B * M, -1))
+        origin_reduce_global_feature = self.reduce_map(
+            origin_global_feature.reshape(B * M, -1))
 
         data['predictions'][
-            'origin_trans_reduce_global_feature'] = origin_trans_reduce_global_feature
+            'origin_reduce_global_feature'] = origin_reduce_global_feature
         return data
 
-    def encodeOriginTrans(self, data):
+    def encodeOriginScale(self, data):
         # BMxC
-        origin_trans_reduce_global_feature = data['predictions'][
-            'origin_trans_reduce_global_feature']
+        origin_reduce_global_feature = data['predictions'][
+            'origin_reduce_global_feature']
 
-        B, M, C = data['predictions']['origin_trans_encode_feature'].shape
+        B, M, C = data['predictions']['origin_encode_feature'].shape
 
         # BMxC -[reshape]-> BxMCx1 -[bbox_feature_decoder]-> BxCx1
-        origin_trans_bbox_feature = self.bbox_feature_decoder(
-            origin_trans_reduce_global_feature.reshape(B, -1, 1))
-
-        # BxCx1 -[euler_angle_decoder]-> Bx3x1 -[reshape]-> Bx3
-        euler_angle_inv = self.euler_angle_decoder(
-            origin_trans_bbox_feature).reshape(B, -1)
+        origin_bbox_feature = self.bbox_feature_decoder(
+            origin_reduce_global_feature.reshape(B, -1, 1))
 
         # BxCx1 -[scale_decoder]-> Bx3x1 -[reshape]-> Bx3
-        scale_inv = self.scale_decoder(origin_trans_bbox_feature).reshape(
-            B, -1)
+        scale_inv = self.scale_decoder(origin_bbox_feature).reshape(B, -1)
 
-        data['predictions']['euler_angle_inv'] = euler_angle_inv
         data['predictions']['scale_inv'] = scale_inv
 
         if self.training:
-            data = self.lossOriginTrans(data)
+            data = self.lossOriginScale(data)
         return data
 
-    def lossOriginTrans(self, data):
-        euler_angle_inv = data['predictions']['euler_angle_inv']
+    def lossOriginScale(self, data):
         scale_inv = data['predictions']['scale_inv']
-        gt_euler_angle_inv = data['inputs']['euler_angle_inv']
         gt_scale_inv = data['inputs']['scale_inv']
 
-        loss_euler_angle_inv_l1 = self.l1_loss(euler_angle_inv,
-                                               gt_euler_angle_inv)
         loss_scale_inv_l1 = self.l1_loss(scale_inv, gt_scale_inv)
 
-        data['losses']['loss_euler_angle_inv_l1'] = loss_euler_angle_inv_l1
         data['losses']['loss_scale_inv_l1'] = loss_scale_inv_l1
         return data
 
     @torch.no_grad()
     def transBackQueryPoints(self, data):
-        origin_trans_point_array = data['predictions'][
-            'origin_trans_point_array']
+        origin_point_array = data['predictions']['origin_point_array']
         # Bx#pointx3
-        origin_trans_query_point_array = data['predictions'][
-            'origin_trans_query_point_array']
+        origin_query_point_array = data['predictions'][
+            'origin_query_point_array']
         # Bx3
         euler_angle_inv = data['predictions']['euler_angle_inv']
         # Bx3
         scale_inv = data['predictions']['scale_inv']
 
-        device = origin_trans_query_point_array.device
+        device = origin_query_point_array.device
 
         trans_back_points_list = []
         query_points_list = []
@@ -248,19 +226,23 @@ class PointsShapeNet(nn.Module):
 
         translate = torch.tensor([0.0, 0.0, 0.0],
                                  dtype=torch.float32).to(device)
-        for i in range(origin_trans_query_point_array.shape[0]):
-            trans_points = origin_trans_point_array[i]
-            trans_query_points = origin_trans_query_point_array[i]
-            euler_angle = euler_angle_inv[i]
+        euler_angle = torch.tensor([1.0, 1.0, 1.0],
+                                   dtype=torch.float32).to(device)
+        for i in range(origin_query_point_array.shape[0]):
+            origin_points = origin_point_array[i]
+            origin_query_points = origin_query_point_array[i]
             scale = scale_inv[i]
 
-            trans_back_points = transPointArray(trans_points,
+            trans_back_points = transPointArray(origin_points,
                                                 translate,
                                                 euler_angle,
                                                 scale,
                                                 center=translate)
-            query_points = transPointArray(trans_query_points, translate,
-                                           euler_angle, scale)
+            query_points = transPointArray(origin_query_points,
+                                           translate,
+                                           euler_angle,
+                                           scale,
+                                           center=translate)
 
             min_point = torch.min(trans_back_points, 0)[0]
             max_point = torch.max(trans_back_points, 0)[0]
@@ -459,9 +441,8 @@ class PointsShapeNet(nn.Module):
         if not self.training:
             return data
 
-        self.setWeight(data, 'loss_origin_trans_coarse', 1000)
+        self.setWeight(data, 'loss_origin_coarse', 1000)
 
-        self.setWeight(data, 'loss_euler_angle_inv_l1', 1)
         self.setWeight(data, 'loss_scale_inv_l1', 1)
 
         self.setWeight(data, 'loss_bbox_l1', 1000)
@@ -473,15 +454,15 @@ class PointsShapeNet(nn.Module):
         return data
 
     def forward(self, data):
-        data = self.transToOrigin(data)
+        data = self.moveToOrigin(data)
 
-        data = self.encodeOriginTransPoints(data)
+        data = self.encodeOriginPoints(data)
 
-        data = self.embedOriginTransPoints(data)
+        data = self.embedOriginPoints(data)
 
-        data = self.decodeOriginTransPointsFeature(data)
+        data = self.decodeOriginPointsFeature(data)
 
-        data = self.encodeOriginTrans(data)
+        data = self.encodeOriginScale(data)
 
         data = self.transBackQueryPoints(data)
 
