@@ -81,8 +81,8 @@ class BBoxNet(nn.Module):
             origin_points = trans_points - trans_query_points_center
             origin_query_points = trans_query_points - trans_query_points_center
 
-            min_point = torch.min(trans_points, 0)[0]
-            max_point = torch.max(trans_points, 0)[0]
+            min_point = torch.min(origin_points, 0)[0]
+            max_point = torch.max(origin_points, 0)[0]
 
             origin_bbox = torch.cat([min_point, max_point])
             min_max_point = origin_bbox.reshape(2, 3)
