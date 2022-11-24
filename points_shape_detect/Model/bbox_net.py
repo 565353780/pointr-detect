@@ -9,11 +9,13 @@ from points_shape_detect.Loss.ious import IoULoss
 from points_shape_detect.Method.sample import fps
 from points_shape_detect.Model.fold import Fold
 from points_shape_detect.Model.pc_transformer import PCTransformer
+from points_shape_detect.Method.weight import setWeight
 
 
 class BBoxNet(nn.Module):
 
     def __init__(self):
+        super().__init__()
         self.trans_dim = 384
         self.knn_layer = 1
         self.num_pred = 6144
@@ -115,25 +117,6 @@ class BBoxNet(nn.Module):
             'origin_coarse_point_cloud'] = origin_coarse_point_cloud
         return data
 
-    def embedOriginPoints(self, data):
-        # Bx#pointx3
-        origin_query_point_array = data['inputs']['origin_query_point_array']
-        # BxMx3
-        origin_coarse_point_cloud = data['predictions'][
-            'origin_coarse_point_cloud']
-
-        # Bx#pointx3 -[fps]-> BxMx3
-        fps_origin_query_point_array = fps(origin_query_point_array,
-                                           self.num_query)
-
-        # BxMx3 + BxMx3 -[cat]-> Bx2Mx3
-        origin_coarse_points = torch.cat(
-            [origin_coarse_point_cloud, fps_origin_query_point_array],
-            dim=1).contiguous()
-
-        data['predictions']['origin_coarse_points'] = origin_coarse_points
-        return data
-
     def decodeOriginPointsFeature(self, data):
         # BxMxC
         origin_encode_feature = data['predictions']['origin_encode_feature']
@@ -216,8 +199,8 @@ class BBoxNet(nn.Module):
         # BxCx1 -[center_decoder]-> Bx3x1 -[reshape]-> Bx3
         origin_center = self.center_decoder(origin_bbox_feature).reshape(B, -1)
 
-        data['predictions']['origin_bbox'] = bbox
-        data['predictions']['origin_center'] = center
+        data['predictions']['origin_bbox'] = origin_bbox
+        data['predictions']['origin_center'] = origin_center
 
         if self.training:
             data = self.lossOriginBBox(data)
@@ -226,8 +209,8 @@ class BBoxNet(nn.Module):
     def lossOriginBBox(self, data):
         origin_bbox = data['predictions']['origin_bbox']
         origin_center = data['predictions']['origin_center']
-        gt_origin_bbox = data['inputs']['trans_back_bbox']
-        gt_origin_center = data['inputs']['trans_back_center']
+        gt_origin_bbox = data['inputs']['origin_bbox']
+        gt_origin_center = data['inputs']['origin_center']
 
         loss_origin_bbox_l1 = self.l1_loss(origin_bbox, gt_origin_bbox)
         loss_origin_center_l1 = self.l1_loss(origin_center, gt_origin_center)
@@ -297,7 +280,7 @@ class BBoxNet(nn.Module):
         return data
 
     def lossOriginComplete(self, data):
-        origin_point_array = data['predictions']['origin_point_array']
+        origin_point_array = data['inputs']['origin_point_array']
         origin_coarse_points = data['predictions']['origin_coarse_points']
         origin_dense_points = data['predictions']['origin_dense_points']
 
@@ -328,8 +311,6 @@ class BBoxNet(nn.Module):
         data = self.moveToOrigin(data)
 
         data = self.encodeOriginPoints(data)
-
-        data = self.embedOriginPoints(data)
 
         data = self.decodeOriginPointsFeature(data)
 
