@@ -9,10 +9,9 @@ from points_shape_detect.Module.trainer import Trainer
 
 
 def demo():
-    model_file_path = "./output/20221122_23:38:42/model_best.pth"
-    model_file_path = "./output/20221124_13:47:06/model_best.pth"
-    model_file_path = ""
-    resume_model_only = False
+    model_file_path = "./output/20221124_23:10:51/model_best.pth"
+    #  model_file_path = ""
+    resume_model_only = True
     print_progress = True
 
     trainer = Trainer()
