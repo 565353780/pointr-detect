@@ -66,25 +66,25 @@ class ContinusRotateNet(nn.Module):
         return data
 
     def encodeRotateMatrix(self, data):
-        # b*N*3
+        # B*N*3
         pt1 = data['inputs']['rotate_back_query_point_array']
-        # b*N*3
+        # B*N*3
         pt2 = data['inputs']['origin_query_point_array']
 
         B, N, _ = pt1.shape
 
-        # bx1024
+        # Bx1024
         feature_pt1 = self.feature_extracter(pt1.transpose(1, 2)).view(B, -1)
-        # bx1024
+        # Bx1024
         feature_pt2 = self.feature_extracter(pt2.transpose(1, 2)).view(B, -1)
 
-        # bx2048
+        # Bx2048
         f = torch.cat((feature_pt1, feature_pt2), 1)
 
-        # bx6
+        # Bx6
         rotation = self.mlp(f)
 
-        # bx3x3
+        # Bx3x3
         rotate_matrix = compute_rotation_matrix_from_ortho6d(rotation)
 
         data['predictions']['rotation'] = rotation
@@ -116,17 +116,9 @@ class ContinusRotateNet(nn.Module):
 
         B, N, _ = pt2.shape
 
-        rotate_back_point_array = torch.bmm(
-            rotate_matrix_inv.view(B, 1, 3,
-                                   3).expand(B, N, 3,
-                                             3).contiguous().view(-1, 3, 3),
-            pt1.view(-1, 3, 1)).view(B, N, 3)
+        rotate_back_point_array = torch.bmm(pt1, rotate_matrix_inv)
 
-        rotate_back_query_point_array = torch.bmm(
-            rotate_matrix_inv.view(B, 1, 3,
-                                   3).expand(B, N, 3,
-                                             3).contiguous().view(-1, 3, 3),
-            pt2.view(-1, 3, 1)).view(B, N, 3)
+        rotate_back_query_point_array = torch.bmm(pt2, rotate_matrix_inv)
 
         data['predictions'][
             'rotate_back_point_array'] = rotate_back_point_array
