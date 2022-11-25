@@ -48,6 +48,7 @@ class Trainer(object):
         self.step = 0
         self.eval_step = 0
         self.loss_min = float('inf')
+        self.eval_loss_min = float('inf')
         self.log_folder_name = getCurrentTime()
 
         self.model = PointsShapeNet().cuda()
@@ -101,6 +102,7 @@ class Trainer(object):
             self.step = model_dict['step']
             self.eval_step = model_dict['eval_step']
             self.loss_min = model_dict['loss_min']
+            self.eval_loss_min = model_dict['eval_loss_min']
             self.log_folder_name = model_dict['log_folder_name']
 
         self.loadSummaryWriter()
@@ -116,6 +118,7 @@ class Trainer(object):
             'step': self.step,
             'eval_step': self.eval_step,
             'loss_min': self.loss_min,
+            'eval_loss_min': self.eval_loss_min,
             'log_folder_name': self.log_folder_name,
         }
 
@@ -223,8 +226,8 @@ class Trainer(object):
         self.summary_writer.add_scalar("Eval/loss_sum", loss_sum_float,
                                        self.eval_step)
 
-        if loss_sum_float < self.loss_min:
-            self.loss_min = loss_sum_float
+        if loss_sum_float < self.eval_loss_min:
+            self.eval_loss_min = loss_sum_float
             self.saveModel("./output/" + self.log_folder_name +
                            "/model_eval_best.pth")
 
