@@ -297,11 +297,11 @@ class BBoxNet(nn.Module):
         if not self.training:
             return data
 
-        data = setWeight(data, 'loss_scale_inv_l1', 1)
+        data = setWeight(data, 'loss_scale_inv_l1', 1000)
 
         data = setWeight(data, 'loss_origin_bbox_l1', 1000)
         data = setWeight(data, 'loss_origin_center_l1', 1000)
-        data = setWeight(data, 'loss_origin_bbox_eiou', 10, max_value=10)
+        data = setWeight(data, 'loss_origin_bbox_eiou', 100, max_value=100)
 
         data = setWeight(data, 'loss_origin_coarse', 1000)
         data = setWeight(data, 'loss_origin_fine', 1000)
