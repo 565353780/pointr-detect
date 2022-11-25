@@ -18,17 +18,16 @@ from points_shape_detect.Method.path import (createFileFolder, removeFile,
                                              renameFile)
 from points_shape_detect.Method.render import (renderPointArray,
                                                renderPointArrayList,
-                                               renderRotateBackPoints,
                                                renderPredictBBox,
+                                               renderRotateBackPoints,
                                                renderTransBackPoints)
 from points_shape_detect.Method.sample import seprate_point_cloud
 from points_shape_detect.Method.time import getCurrentTime
 from points_shape_detect.Method.trans import getInverseTrans, transPointArray
-from points_shape_detect.Scheduler.bn_momentum import BNMomentumScheduler
-
-from points_shape_detect.Model.rotate_net import RotateNet
 from points_shape_detect.Model.bbox_net import BBoxNet
 from points_shape_detect.Model.points_shape_net import PointsShapeNet
+from points_shape_detect.Model.rotate_net import RotateNet
+from points_shape_detect.Scheduler.bn_momentum import BNMomentumScheduler
 
 
 def worker_init_fn(worker_id):
@@ -49,6 +48,7 @@ class Trainer(object):
         self.bn_momentum = 0.9
         self.bn_lowest_decay = 0.01
         self.step = 0
+        self.eval_step = 0
         self.loss_min = float('inf')
         self.log_folder_name = getCurrentTime()
 
@@ -56,13 +56,20 @@ class Trainer(object):
         #  self.model = RotateNet().cuda()
         #  self.model = PointsShapeNet().cuda()
 
-        self.dataset = CADDataset()
-        self.dataloader = DataLoader(self.dataset,
-                                     batch_size=self.batch_size,
-                                     shuffle=False,
-                                     drop_last=False,
-                                     num_workers=self.batch_size,
-                                     worker_init_fn=worker_init_fn)
+        self.train_dataset = CADDataset()
+        self.eval_dataset = CADDataset(False)
+        self.train_dataloader = DataLoader(self.train_dataset,
+                                           batch_size=self.batch_size,
+                                           shuffle=True,
+                                           drop_last=True,
+                                           num_workers=self.batch_size,
+                                           worker_init_fn=worker_init_fn)
+        self.eval_dataloader = DataLoader(self.eval_dataset,
+                                          batch_size=1,
+                                          shuffle=False,
+                                          drop_last=False,
+                                          num_workers=1,
+                                          worker_init_fn=worker_init_fn)
 
         self.optimizer = AdamW(self.model.parameters(),
                                lr=self.lr,
@@ -104,6 +111,7 @@ class Trainer(object):
         if not resume_model_only:
             self.optimizer.load_state_dict(model_dict['optimizer'])
             self.step = model_dict['step']
+            self.eval_step = model_dict['eval_step']
             self.loss_min = model_dict['loss_min']
             self.log_folder_name = model_dict['log_folder_name']
 
@@ -118,6 +126,7 @@ class Trainer(object):
             'model': self.model.state_dict(),
             'optimizer': self.optimizer.state_dict(),
             'step': self.step,
+            'eval_step': self.eval_step,
             'loss_min': self.loss_min,
             'log_folder_name': self.log_folder_name,
         }
@@ -144,7 +153,7 @@ class Trainer(object):
         return data
 
     def testTrain(self):
-        test_dataloader = DataLoader(self.dataset,
+        test_dataloader = DataLoader(self.train_dataset,
                                      batch_size=2,
                                      shuffle=False,
                                      drop_last=False,
@@ -169,12 +178,10 @@ class Trainer(object):
         return True
 
     def trainStep(self, data):
+        self.model.train()
+
         toCuda(data)
         data = self.preProcessData(data)
-
-        self.model.train()
-        self.model.zero_grad()
-        self.optimizer.zero_grad()
 
         data = self.model(data)
 
@@ -187,7 +194,7 @@ class Trainer(object):
 
         loss_sum = torch.sum(losses_tensor)
         loss_sum_float = loss_sum.detach().cpu().numpy()
-        self.summary_writer.add_scalar("Loss/loss_sum", loss_sum_float,
+        self.summary_writer.add_scalar("Train/loss_sum", loss_sum_float,
                                        self.step)
 
         if loss_sum_float < self.loss_min:
@@ -199,26 +206,62 @@ class Trainer(object):
             loss_tensor = loss.detach() if len(
                 loss.shape) > 0 else loss.detach().reshape(1)
             loss_mean = torch.mean(loss_tensor)
-            self.summary_writer.add_scalar("Loss/" + key, loss_mean, self.step)
+            self.summary_writer.add_scalar("Train/" + key, loss_mean,
+                                           self.step)
 
         loss_sum.backward()
         self.optimizer.step()
+        self.model.zero_grad()
+        #  self.optimizer.zero_grad()
+        return True
+
+    def evalStep(self, data):
+        self.model.eval()
+
+        toCuda(data)
+        data = self.preProcessData(data)
+
+        data = self.model(data)
+
+        losses = data['losses']
+
+        losses_tensor = torch.cat([
+            loss if len(loss.shape) > 0 else loss.reshape(1)
+            for loss in data['losses'].values()
+        ])
+
+        loss_sum = torch.sum(losses_tensor)
+        loss_sum_float = loss_sum.detach().cpu().numpy()
+        self.summary_writer.add_scalar("Eval/loss_sum", loss_sum_float,
+                                       self.eval_step)
+
+        if loss_sum_float < self.loss_min:
+            self.loss_min = loss_sum_float
+            self.saveModel("./output/" + self.log_folder_name +
+                           "/model_eval_best.pth")
+
+        for key, loss in losses.items():
+            loss_tensor = loss.detach() if len(
+                loss.shape) > 0 else loss.detach().reshape(1)
+            loss_mean = torch.mean(loss_tensor)
+            self.summary_writer.add_scalar("Eval/" + key, loss_mean,
+                                           self.eval_step)
         return True
 
     def train(self, print_progress=False):
         total_epoch = 10000000
 
+        self.model.zero_grad()
         for epoch in range(total_epoch):
-            print("[INFO][Trainer::train]")
-            print("\t start training, epoch : " + str(epoch + 1) + "/" +
-                  str(total_epoch) + "...")
-
             self.summary_writer.add_scalar(
                 "Lr/lr",
                 self.optimizer.state_dict()['param_groups'][0]['lr'],
                 self.step)
 
-            for_data = self.dataloader
+            print("[INFO][Trainer::train]")
+            print("\t start training, epoch : " + str(epoch + 1) + "/" +
+                  str(total_epoch) + "...")
+            for_data = self.train_dataloader
             if print_progress:
                 for_data = tqdm(for_data)
             for data in for_data:
@@ -227,6 +270,16 @@ class Trainer(object):
 
             self.scheduler.step()
             self.bn_scheduler.step()
+
+            print("[INFO][Trainer::train]")
+            print("\t start evaling, epoch : " + str(epoch + 1) + "/" +
+                  str(total_epoch) + "...")
+            for_data = self.eval_dataloader
+            if print_progress:
+                for_data = tqdm(for_data)
+            for data in for_data:
+                self.evalStep(data)
+                self.eval_step += 1
 
             self.saveModel("./output/" + self.log_folder_name +
                            "/model_last.pth")

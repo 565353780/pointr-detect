@@ -26,14 +26,43 @@ from auto_cad_recon.Module.dataset_manager import DatasetManager
 
 class CADDataset(Dataset):
 
-    def __init__(self):
+    def __init__(self, training=True, training_percent=0.8):
+        self.training = training
+        self.training_percent = training_percent
+
         self.cad_model_file_path_list = []
+        self.train_idx_list = []
+        self.eval_idx_list = []
 
         self.loadShapeNet55()
+        self.updateIdx()
         return
 
     def reset(self):
         self.cad_model_file_path_list = []
+        return True
+
+    def updateIdx(self):
+        model_num = len(self.cad_model_file_path_list)
+        if model_num == 1:
+            self.train_idx_list = [0]
+            self.eval_idx_list = [0]
+            return True
+
+        assert model_num > 0
+
+        train_model_num = int(model_num * self.training_percent)
+        if train_model_num == 0:
+            train_model_num += 1
+        elif train_model_num == model_num:
+            train_model_num -= 1
+
+        random_idx_list = np.random.choice(np.arange(model_num),
+                                           size=model_num,
+                                           replace=False)
+
+        self.train_idx_list = random_idx_list[:train_model_num]
+        self.eval_idx_list = random_idx_list[train_model_num:]
         return True
 
     def loadScan2CAD(self):
@@ -76,6 +105,11 @@ class CADDataset(Dataset):
         return True
 
     def __getitem__(self, idx, training=True):
+        if self.training:
+            idx = self.train_idx_list[idx]
+        else:
+            idx = self.eval_idx_list[idx]
+
         cad_model_file_path = self.cad_model_file_path_list[idx]
 
         data = {'inputs': {}, 'predictions': {}, 'losses': {}, 'logs': {}}
@@ -103,4 +137,7 @@ class CADDataset(Dataset):
         return data
 
     def __len__(self):
-        return len(self.cad_model_file_path_list)
+        if self.training:
+            return len(self.train_idx_list)
+        else:
+            return len(self.eval_idx_list)
