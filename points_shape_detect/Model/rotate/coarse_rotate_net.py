@@ -106,7 +106,7 @@ class CoarseRotateNet(nn.Module):
         origin_reduce_global_feature = data['predictions'][
             'origin_reduce_global_feature']
 
-        B, M, C = data['predictions']['origin_encode_feature'].shape
+        B = data['predictions']['origin_encode_feature'].shape[0]
 
         # BMxC -[reshape]-> BxMCx1 -[bbox_feature_encoder]-> BxCx1
         origin_coarse_rotate_feature = self.coarse_rotate_feature_encoder(
@@ -156,9 +156,9 @@ class CoarseRotateNet(nn.Module):
         #  if not self.training:
         #  return data
 
-        data = setWeight(data, 'loss_x_coarse_rotate_cls', 1)
-        data = setWeight(data, 'loss_y_coarse_rotate_cls', 1)
-        data = setWeight(data, 'loss_z_coarse_rotate_cls', 1)
+        data = setWeight(data, 'loss_x_coarse_rotate_cls', 100)
+        data = setWeight(data, 'loss_y_coarse_rotate_cls', 100)
+        data = setWeight(data, 'loss_z_coarse_rotate_cls', 100)
         return data
 
     def forward(self, data):
