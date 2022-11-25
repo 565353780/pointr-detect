@@ -14,7 +14,7 @@ from points_shape_detect.Method.weight import setWeight
 class ContinusRotateNet(nn.Module):
 
     def __init__(self):
-        super(Model, self).__init__()
+        super().__init__()
 
         # bx#pointx3 -> bx1x1024
         self.feature_extracter = nn.Sequential(
@@ -37,17 +37,20 @@ class ContinusRotateNet(nn.Module):
         origin_query_point_array = data['inputs']['origin_query_point_array']
         rotate_matrix = data['inputs']['rotate_matrix']
 
+        rotate_matrix_inv = rotate_matrix.transpose(1, 2)
+
         rotate_back_points_list = []
         rotate_back_query_points_list = []
 
         for i in range(origin_query_point_array.shape[0]):
             origin_points = origin_point_array[i]
             origin_query_points = origin_query_point_array[i]
-            rotate_matrix_inv = rotate_matrix[i].transpose()
+            current_rotate_matrix_inv = rotate_matrix_inv[i]
 
-            rotate_back_points = torch.matmul(origin_points, rotate_matrix_inv)
+            rotate_back_points = torch.matmul(origin_points,
+                                              current_rotate_matrix_inv)
             rotate_back_query_points = torch.matmul(origin_query_points,
-                                                    rotate_matrix_inv)
+                                                    current_rotate_matrix_inv)
 
             rotate_back_points_list.append(rotate_back_points.unsqueeze(0))
             rotate_back_query_points_list.append(
@@ -62,11 +65,11 @@ class ContinusRotateNet(nn.Module):
             'rotate_back_query_point_array'] = rotate_back_query_point_array
         return data
 
-    def encodeRotationMatrix(self, data):
+    def encodeRotateMatrix(self, data):
         # b*N*3
-        pt1 = data['inputs']['rotate_back_origin_query_point_array']
+        pt1 = data['inputs']['rotate_back_query_point_array']
         # b*N*3
-        pt2 = data['predictions']['origin_query_point_array']
+        pt2 = data['inputs']['origin_query_point_array']
 
         B, N, _ = pt1.shape
 
@@ -105,8 +108,8 @@ class ContinusRotateNet(nn.Module):
         return data
 
     def rotateBackByPredict(self, data):
-        pt1 = data['predictions']['origin_point_array']
-        pt2 = data['predictions']['origin_query_point_array']
+        pt1 = data['inputs']['origin_point_array']
+        pt2 = data['inputs']['origin_query_point_array']
         rotate_matrix = data['predictions']['rotate_matrix']
 
         rotate_matrix_inv = rotate_matrix.transpose(1, 2)
@@ -166,7 +169,7 @@ class ContinusRotateNet(nn.Module):
     def forward(self, data):
         data = self.rotateBackPoints(data)
 
-        data = self.encodeRotation(data)
+        data = self.encodeRotateMatrix(data)
 
         data = self.rotateBackByPredict(data)
 
