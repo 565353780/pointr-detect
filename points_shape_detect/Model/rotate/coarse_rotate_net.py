@@ -39,21 +39,22 @@ class CoarseRotateNet(nn.Module):
             nn.Conv1d(self.coarse_rotate_cls_num, self.coarse_rotate_cls_num,
                       1))
 
-        self.cls_loss = nn.CrossEntropy()
+        self.cls_loss = nn.CrossEntropyLoss()
         return
 
     @torch.no_grad()
     def createCoarseRotateCls(self, data):
         # Bx3
-        euler_angle_inv = data['inputs']['euler_angle_inv']
+        euler_angle = data['inputs']['euler_angle']
+
+        device = euler_angle.device
+
         x_coarse_rotate_cls_list = []
         y_coarse_rotate_cls_list = []
         z_coarse_rotate_cls_list = []
 
-        for i in range(euler_angle_inv.shape[0]):
-            euler_angle = euler_angle_inv[i]
-
-            x_rotate_angle, y_rotate_angle, z_rotate_angle = euler_angle
+        for current_euler_angle in euler_angle:
+            x_rotate_angle, y_rotate_angle, z_rotate_angle = current_euler_angle
             while x_rotate_angle < 0:
                 x_rotate_angle = x_rotate_angle + 360.0
             while x_rotate_angle >= 360.0:
@@ -67,17 +68,24 @@ class CoarseRotateNet(nn.Module):
             while z_rotate_angle >= 360.0:
                 z_rotate_angle = z_rotate_angle - 360.0
 
-            x_rotate_cls_idx = (x_rotate_angle * self.coarse_rotate_cls_num /
-                                360.0).floor()
-            y_rotate_cls_idx = (y_rotate_angle * self.coarse_rotate_cls_num /
-                                360.0).floor()
-            z_rotate_cls_idx = (z_rotate_angle * self.coarse_rotate_cls_num /
-                                360.0).floor()
-            x_rotate_cls = torch.zeros(self.coarse_rotate_cls_num)
+            x_rotate_cls_idx = int(
+                (x_rotate_angle * self.coarse_rotate_cls_num /
+                 360.0).floor().item())
+            y_rotate_cls_idx = int(
+                (y_rotate_angle * self.coarse_rotate_cls_num /
+                 360.0).floor().item())
+            z_rotate_cls_idx = int(
+                (z_rotate_angle * self.coarse_rotate_cls_num /
+                 360.0).floor().item())
+
+            x_rotate_cls = torch.zeros(self.coarse_rotate_cls_num,
+                                       dtype=torch.float32).to(device)
             x_rotate_cls[x_rotate_cls_idx] = 1.0
-            y_rotate_cls = torch.zeros(self.coarse_rotate_cls_num)
+            y_rotate_cls = torch.zeros(self.coarse_rotate_cls_num,
+                                       dtype=torch.float32).to(device)
             y_rotate_cls[y_rotate_cls_idx] = 1.0
-            z_rotate_cls = torch.zeros(self.coarse_rotate_cls_num)
+            z_rotate_cls = torch.zeros(self.coarse_rotate_cls_num,
+                                       dtype=torch.float32).to(device)
             z_rotate_cls[z_rotate_cls_idx] = 1.0
 
             x_coarse_rotate_cls_list.append(x_rotate_cls.unsqueeze(0))

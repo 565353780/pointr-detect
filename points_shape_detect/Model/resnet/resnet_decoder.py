@@ -3,7 +3,7 @@
 
 import torch.nn as nn
 
-from points_shape_detect.Model.resnet_block import ResNetBlock
+from points_shape_detect.Model.resnet.resnet_block import ResNetBlock
 
 
 class ResNetDecoder(nn.Module):

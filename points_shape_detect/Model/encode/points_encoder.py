@@ -5,7 +5,7 @@ import torch
 from torch import nn
 
 from points_shape_detect.Method.weight import setWeight
-from points_shape_detect.Model.pc_transformer import PCTransformer
+from points_shape_detect.Model.encode.pc_transformer import PCTransformer
 
 
 class PointsEncoder(nn.Module):

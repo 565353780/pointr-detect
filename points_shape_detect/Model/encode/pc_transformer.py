@@ -9,7 +9,7 @@ from knn_cuda import KNN
 
 from timm.models.layers import DropPath, trunc_normal_
 
-from points_shape_detect.Model.dgcnn_group import DGCNN_Grouper
+from points_shape_detect.Model.encode.dgcnn_group import DGCNN_Grouper
 
 knn = KNN(k=8, transpose_mode=False)
 
@@ -294,8 +294,6 @@ class Block(nn.Module):
 
 
 class PCTransformer(nn.Module):
-    """ Vision Transformer with support for point cloud completion
-    """
 
     def __init__(self,
                  in_chans=3,

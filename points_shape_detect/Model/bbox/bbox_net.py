@@ -37,45 +37,49 @@ class BBoxNet(nn.Module):
         self.l1_loss = nn.SmoothL1Loss()
         return
 
-    def encodeScale(self, data):
+    def encodeOriginBBoxFeature(self, data):
         # BMxC
         origin_reduce_global_feature = data['predictions'][
             'origin_reduce_global_feature']
 
-        B, M, C = data['predictions']['origin_encode_feature'].shape
+        B = data['predictions']['origin_encode_feature'].shape[0]
 
         # BMxC -[reshape]-> BxMCx1 -[bbox_feature_encoder]-> BxCx1
         origin_bbox_feature = self.bbox_feature_encoder(
             origin_reduce_global_feature.reshape(B, -1, 1))
 
-        # BxCx1 -[scale_decoder]-> Bx3x1 -[reshape]-> Bx3
-        scale_inv = self.scale_decoder(origin_bbox_feature).reshape(B, -1)
+        data['predictions']['origin_bbox_feature'] = origin_bbox_feature
+        return data
 
-        data['predictions']['scale_inv'] = scale_inv
+    def encodeScale(self, data):
+        # BxCx1
+        origin_bbox_feature = data['predictions']['origin_bbox_feature']
+
+        B = origin_bbox_feature.shape[0]
+
+        # BxCx1 -[scale_decoder]-> Bx3x1 -[reshape]-> Bx3
+        scale = self.scale_decoder(origin_bbox_feature).reshape(B, -1)
+
+        data['predictions']['scale'] = scale
 
         #  if self.training:
         data = self.lossScale(data)
         return data
 
     def lossScale(self, data):
-        scale_inv = data['predictions']['scale_inv']
-        gt_scale_inv = data['inputs']['scale_inv']
+        scale = data['predictions']['scale']
+        gt_scale = data['inputs']['scale']
 
-        loss_scale_inv_l1 = self.l1_loss(scale_inv, gt_scale_inv)
+        loss_scale_l1 = self.l1_loss(scale, gt_scale)
 
-        data['losses']['loss_scale_inv_l1'] = loss_scale_inv_l1
+        data['losses']['loss_scale_l1'] = loss_scale_l1
         return data
 
     def encodeOriginBBox(self, data):
-        # BMxC
-        origin_reduce_global_feature = data['predictions'][
-            'origin_reduce_global_feature']
+        # BxCx1
+        origin_bbox_feature = data['predictions']['origin_bbox_feature']
 
-        B, M, C = data['predictions']['origin_encode_feature'].shape
-
-        # BMxC -[reshape]-> BxMCx1 -[bbox_feature_encoder]-> BxCx1
-        origin_bbox_feature = self.bbox_feature_encoder(
-            origin_reduce_global_feature.reshape(B, -1, 1))
+        B = origin_bbox_feature.shape[0]
 
         # BxCx1 -[bbox_decoder]-> Bx6x1 -[reshape]-> Bx6
         origin_bbox = self.bbox_decoder(origin_bbox_feature).reshape(B, -1)
@@ -110,7 +114,7 @@ class BBoxNet(nn.Module):
         #  if not self.training:
         #  return data
 
-        data = setWeight(data, 'loss_scale_inv_l1', 1000)
+        data = setWeight(data, 'loss_scale_l1', 1000)
 
         data = setWeight(data, 'loss_origin_bbox_l1', 1000)
         data = setWeight(data, 'loss_origin_center_l1', 1000)
@@ -118,6 +122,8 @@ class BBoxNet(nn.Module):
         return data
 
     def forward(self, data):
+        data = self.encodeOriginBBoxFeature(data)
+
         data = self.encodeScale(data)
 
         data = self.encodeOriginBBox(data)

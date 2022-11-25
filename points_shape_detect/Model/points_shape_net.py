@@ -6,10 +6,10 @@ from torch import nn
 
 from points_shape_detect.Method.trans import getInverseTrans, transPointArray
 
-from points_shape_detect.Model.points_encoder import PointsEncoder
-from points_shape_detect.Model.bbox_net import BBoxNet
-from points_shape_detect.Model.coarse_rotate_net import CoarseRotateNet
-from points_shape_detect.Model.shape_complete_net import ShapeCompleteNet
+from points_shape_detect.Model.encode.points_encoder import PointsEncoder
+from points_shape_detect.Model.bbox.bbox_net import BBoxNet
+from points_shape_detect.Model.rotate.coarse_rotate_net import CoarseRotateNet
+from points_shape_detect.Model.complete.shape_complete_net import ShapeCompleteNet
 
 
 class PointsShapeNet(nn.Module):
@@ -28,7 +28,7 @@ class PointsShapeNet(nn.Module):
         # Bx#pointx3
         origin_query_point_array = data['predictions'][
             'origin_query_point_array']
-        euler_angle_inv = data['predictions']['origin_query_euler_angle_inv']
+        euler_angle = data['predictions']['origin_query_euler_angle']
 
         device = origin_query_point_array.device
 
@@ -41,14 +41,16 @@ class PointsShapeNet(nn.Module):
         for i in range(origin_query_point_array.shape[0]):
             origin_points = origin_point_array[i]
             origin_query_points = origin_query_point_array[i]
-            euler_angle = euler_angle_inv[i]
+            current_euler_angle = euler_angle[i]
+            _, current_euler_angle_inv, _ = getInverseTrans(
+                translate, current_euler_angle, scale)
 
             rotate_back_points = transPointArray(origin_points, translate,
-                                                 euler_angle, scale, True,
-                                                 translate)
-            rotate_back_query_points = transPointArray(origin_query_points,
-                                                       translate, euler_angle,
-                                                       scale, True, translate)
+                                                 current_euler_angle_inv,
+                                                 scale, True, translate)
+            rotate_back_query_points = transPointArray(
+                origin_query_points, translate, current_euler_angle_inv, scale,
+                True, translate)
 
             rotate_back_points_list.append(rotate_back_points.unsqueeze(0))
             rotate_back_query_points_list.append(

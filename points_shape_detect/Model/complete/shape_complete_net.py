@@ -7,7 +7,7 @@ from torch import nn
 from points_shape_detect.Lib.chamfer_dist import ChamferDistanceL1
 from points_shape_detect.Method.sample import fps
 from points_shape_detect.Method.weight import setWeight
-from points_shape_detect.Model.fold import Fold
+from points_shape_detect.Model.complete.fold import Fold
 
 
 class ShapeCompleteNet(nn.Module):

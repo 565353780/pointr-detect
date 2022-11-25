@@ -6,8 +6,8 @@ from torch import nn
 
 from udf_generate.Method.udfs import getPointUDF
 
-from points_shape_detect.Model.resnet_encoder import ResNetEncoder
-from points_shape_detect.Model.resnet_decoder import ResNetDecoder
+from points_shape_detect.Model.resnet.resnet_encoder import ResNetEncoder
+from points_shape_detect.Model.resnet.resnet_decoder import ResNetDecoder
 
 from points_shape_detect.Method.trans import transPointArray
 from points_shape_detect.Method.weight import setWeight
