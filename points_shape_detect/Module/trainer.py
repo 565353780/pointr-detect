@@ -25,7 +25,6 @@ from points_shape_detect.Method.sample import seprate_point_cloud
 from points_shape_detect.Method.time import getCurrentTime
 from points_shape_detect.Method.trans import getInverseTrans, transPointArray
 from points_shape_detect.Model.points_shape_net import PointsShapeNet
-from points_shape_detect.Model.rotate_net import RotateNet
 from points_shape_detect.Scheduler.bn_momentum import BNMomentumScheduler
 
 
@@ -95,15 +94,7 @@ class Trainer(object):
 
         model_dict = torch.load(model_file_path)
 
-        from collections import OrderedDict
-        new_state_dict = OrderedDict()
-        for k, v in model_dict['model'].items():
-            if 'euler_angle_decoder' in k:
-                continue
-            new_state_dict[k] = v
-
-        #  self.model.load_state_dict(model_dict['model'])
-        self.model.load_state_dict(new_state_dict)
+        self.model.load_state_dict(model_dict['model'])
 
         if not resume_model_only:
             self.optimizer.load_state_dict(model_dict['optimizer'])
@@ -169,7 +160,7 @@ class Trainer(object):
             data = self.model(data)
 
             print(data['predictions'].keys())
-            renderRotateBackPoints(data)
+            #  renderRotateBackPoints(data)
             renderTransBackPoints(data)
             #  renderPredictBBox(data)
         return True
