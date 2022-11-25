@@ -38,8 +38,8 @@ class Trainer(object):
 
     def __init__(self):
         self.batch_size = 24
-        self.lr = 5e-7
-        self.weight_decay = 5e-7
+        self.lr = 5e-8
+        self.weight_decay = 5e-8
         self.decay_step = 21
         self.lr_decay = 0.76
         self.lowest_decay = 0.02
@@ -65,10 +65,10 @@ class Trainer(object):
                                            num_workers=self.batch_size,
                                            worker_init_fn=worker_init_fn)
         self.eval_dataloader = DataLoader(self.eval_dataset,
-                                          batch_size=1,
+                                          batch_size=self.batch_size,
                                           shuffle=False,
                                           drop_last=False,
-                                          num_workers=1,
+                                          num_workers=self.batch_size,
                                           worker_init_fn=worker_init_fn)
 
         self.optimizer = AdamW(self.model.parameters(),
