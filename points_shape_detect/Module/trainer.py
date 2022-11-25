@@ -24,7 +24,6 @@ from points_shape_detect.Method.render import (renderPointArray,
 from points_shape_detect.Method.sample import seprate_point_cloud
 from points_shape_detect.Method.time import getCurrentTime
 from points_shape_detect.Method.trans import getInverseTrans, transPointArray
-from points_shape_detect.Model.bbox_net import BBoxNet
 from points_shape_detect.Model.points_shape_net import PointsShapeNet
 from points_shape_detect.Model.rotate_net import RotateNet
 from points_shape_detect.Scheduler.bn_momentum import BNMomentumScheduler
@@ -52,9 +51,7 @@ class Trainer(object):
         self.loss_min = float('inf')
         self.log_folder_name = getCurrentTime()
 
-        self.model = BBoxNet().cuda()
-        #  self.model = RotateNet().cuda()
-        #  self.model = PointsShapeNet().cuda()
+        self.model = PointsShapeNet().cuda()
 
         self.train_dataset = CADDataset()
         self.eval_dataset = CADDataset(False)
