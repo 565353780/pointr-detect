@@ -6,16 +6,20 @@ from torch import nn
 
 from points_shape_detect.Method.trans import getInverseTrans, transPointArray
 
+from points_shape_detect.Model.points_encoder import PointsEncoder
 from points_shape_detect.Model.bbox_net import BBoxNet
-from points_shape_detect.Model.rotate_net import RotateNet
+from points_shape_detect.Model.coarse_rotate_net import CoarseRotateNet
+from points_shape_detect.Model.shape_complete_net import ShapeCompleteNet
 
 
 class PointsShapeNet(nn.Module):
 
     def __init__(self):
         super().__init__()
+        self.points_encoder = PointsEncoder()
         self.bbox_net = BBoxNet()
-        self.rotate_net = RotateNet()
+        self.coarse_rotate_net = CoarseRotateNet()
+        self.shape_complete_net = ShapeCompleteNet()
         return
 
     @torch.no_grad()
@@ -61,6 +65,8 @@ class PointsShapeNet(nn.Module):
         return data
 
     def forward(self, data):
+        data = self.points_encoder(data)
         data = self.bbox_net(data)
-        data = self.rotate_net(data)
+        data = self.coarse_rotate_net(data)
+        data = self.shape_complete_net(data)
         return data

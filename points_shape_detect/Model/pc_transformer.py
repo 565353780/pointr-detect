@@ -384,38 +384,6 @@ class PCTransformer(nn.Module):
             nn.init.constant_(m.bias.data, 0)
         return
 
-    def pos_encoding_sin_wave(self, coor):
-        D = 64
-
-        # normal the coor into [-1, 1], batch wise
-        normal_coor = 2 * ((coor - coor.min()) / (coor.max() - coor.min())) - 1
-
-        # define sin wave freq
-        freqs = torch.arange(D, dtype=torch.float).cuda()
-        freqs = np.pi * (2**freqs)
-
-        # 1x1x1xD
-        freqs = freqs.view(*[1] * len(normal_coor.shape), -1)
-
-        # Bx3xNx1
-        normal_coor = normal_coor.unsqueeze(-1)
-
-        # Bx3xNxD
-        k = normal_coor * freqs
-
-        # Bx3xNxD
-        s = torch.sin(k)
-
-        # Bx3xNxD
-        c = torch.cos(k)
-
-        # Bx3xNx2D
-        x = torch.cat([s, c], -1)
-
-        # Bx6DxN
-        pos = x.transpose(-1, -2).reshape(coor.shape[0], -1, coor.shape[-1])
-        return pos
-
     def forward(self, inpc):
         '''
             inpc : input incomplete point cloud with shape B N(2048) C(3)
