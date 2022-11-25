@@ -22,50 +22,6 @@ class PointsShapeNet(nn.Module):
         self.shape_complete_net = ShapeCompleteNet()
         return
 
-    @torch.no_grad()
-    def rotateBackPoints(self, data):
-        origin_point_array = data['predictions']['origin_point_array']
-        # Bx#pointx3
-        origin_query_point_array = data['predictions'][
-            'origin_query_point_array']
-        euler_angle = data['predictions']['origin_query_euler_angle']
-
-        device = origin_query_point_array.device
-
-        rotate_back_points_list = []
-        rotate_back_query_points_list = []
-
-        translate = torch.tensor([0.0, 0.0, 0.0],
-                                 dtype=torch.float32).to(device)
-        scale = torch.tensor([1.0, 1.0, 1.0], dtype=torch.float32).to(device)
-        for i in range(origin_query_point_array.shape[0]):
-            origin_points = origin_point_array[i]
-            origin_query_points = origin_query_point_array[i]
-            current_euler_angle = euler_angle[i]
-            _, current_euler_angle_inv, _ = getInverseTrans(
-                translate, current_euler_angle, scale)
-
-            rotate_back_points = transPointArray(origin_points, translate,
-                                                 current_euler_angle_inv,
-                                                 scale, True, translate)
-            rotate_back_query_points = transPointArray(
-                origin_query_points, translate, current_euler_angle_inv, scale,
-                True, translate)
-
-            rotate_back_points_list.append(rotate_back_points.unsqueeze(0))
-            rotate_back_query_points_list.append(
-                rotate_back_query_points.unsqueeze(0))
-
-        rotate_back_point_array = torch.cat(rotate_back_points_list).detach()
-        rotate_back_query_point_array = torch.cat(
-            rotate_back_query_points_list).detach()
-
-        data['predictions'][
-            'rotate_back_point_array'] = rotate_back_point_array
-        data['predictions'][
-            'rotate_back_query_point_array'] = rotate_back_query_point_array
-        return data
-
     def forward(self, data):
         data = self.points_encoder(data)
         data = self.bbox_net(data)
