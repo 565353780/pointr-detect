@@ -39,26 +39,10 @@ class ContinusRotateNet(nn.Module):
 
         rotate_matrix_inv = rotate_matrix.transpose(1, 2)
 
-        rotate_back_points_list = []
-        rotate_back_query_points_list = []
-
-        for i in range(origin_query_point_array.shape[0]):
-            origin_points = origin_point_array[i]
-            origin_query_points = origin_query_point_array[i]
-            current_rotate_matrix_inv = rotate_matrix_inv[i]
-
-            rotate_back_points = torch.matmul(origin_points,
-                                              current_rotate_matrix_inv)
-            rotate_back_query_points = torch.matmul(origin_query_points,
-                                                    current_rotate_matrix_inv)
-
-            rotate_back_points_list.append(rotate_back_points.unsqueeze(0))
-            rotate_back_query_points_list.append(
-                rotate_back_query_points.unsqueeze(0))
-
-        rotate_back_point_array = torch.cat(rotate_back_points_list).detach()
-        rotate_back_query_point_array = torch.cat(
-            rotate_back_query_points_list).detach()
+        rotate_back_point_array = torch.matmul(origin_point_array,
+                                               rotate_matrix_inv).detach()
+        rotate_back_query_point_array = torch.matmul(
+            origin_query_point_array, rotate_matrix_inv).detach()
 
         data['inputs']['rotate_back_point_array'] = rotate_back_point_array
         data['inputs'][
@@ -67,9 +51,9 @@ class ContinusRotateNet(nn.Module):
 
     def encodeRotateMatrix(self, data):
         # B*N*3
-        pt1 = data['inputs']['rotate_back_query_point_array']
+        pt1 = data['inputs']['rotate_back_point_array']
         # B*N*3
-        pt2 = data['inputs']['origin_query_point_array']
+        pt2 = data['inputs']['origin_point_array']
 
         B, N, _ = pt1.shape
 
@@ -100,13 +84,14 @@ class ContinusRotateNet(nn.Module):
 
         loss_rotate_matrix = torch.pow(gt_rotate_matrix - rotate_matrix,
                                        2).mean()
-        loss_geodesic = compute_geodesic_distance_from_two_matrices(
-            gt_rotate_matrix, rotate_matrix).mean()
+        #  loss_geodesic = compute_geodesic_distance_from_two_matrices(
+        #  gt_rotate_matrix, rotate_matrix).mean()
 
         data['losses']['loss_rotate_matrix'] = loss_rotate_matrix
-        data['losses']['loss_geodesic'] = loss_geodesic
+        #  data['losses']['loss_geodesic'] = loss_geodesic
         return data
 
+    @torch.no_grad()
     def rotateBackByPredict(self, data):
         pt1 = data['inputs']['origin_point_array']
         pt2 = data['inputs']['origin_query_point_array']
@@ -116,35 +101,15 @@ class ContinusRotateNet(nn.Module):
 
         B, N, _ = pt2.shape
 
-        rotate_back_point_array = torch.bmm(pt1, rotate_matrix_inv)
+        rotate_back_point_array = torch.bmm(pt1, rotate_matrix_inv).detach()
 
-        rotate_back_query_point_array = torch.bmm(pt2, rotate_matrix_inv)
+        rotate_back_query_point_array = torch.bmm(pt2,
+                                                  rotate_matrix_inv).detach()
 
         data['predictions'][
             'rotate_back_point_array'] = rotate_back_point_array
         data['predictions'][
             'rotate_back_query_point_array'] = rotate_back_query_point_array
-
-        #  if self.training:
-        data = self.lossPose(data)
-        return data
-
-    def lossPose(self, data):
-        rotate_back_point_array = data['predictions'][
-            'rotate_back_point_array']
-        rotate_back_query_point_array = data['predictions'][
-            'rotate_back_query_point_array']
-        gt_rotate_back_point_array = data['inputs']['rotate_back_point_array']
-        gt_rotate_back_query_point_array = data['inputs'][
-            'rotate_back_query_point_array']
-
-        loss_complete_pose = self.mse_loss(rotate_back_point_array,
-                                           gt_rotate_back_point_array)
-        loss_query_pose = self.mse_loss(rotate_back_query_point_array,
-                                        gt_rotate_back_query_point_array)
-
-        data['losses']['loss_complete_pose'] = loss_complete_pose
-        data['losses']['loss_query_pose'] = loss_query_pose
         return data
 
     def addWeight(self, data):
@@ -152,10 +117,7 @@ class ContinusRotateNet(nn.Module):
         #  return data
 
         data = setWeight(data, 'loss_rotate_matrix', 1)
-        data = setWeight(data, 'loss_geodesic', 1)
-
-        data = setWeight(data, 'loss_complete_pose', 1)
-        data = setWeight(data, 'loss_query_pose', 1)
+        #  data = setWeight(data, 'loss_geodesic', 1)
         return data
 
     def forward(self, data):
@@ -163,7 +125,7 @@ class ContinusRotateNet(nn.Module):
 
         data = self.encodeRotateMatrix(data)
 
-        data = self.rotateBackByPredict(data)
+        #  data = self.rotateBackByPredict(data)
 
         data = self.addWeight(data)
         return data

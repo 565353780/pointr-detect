@@ -68,3 +68,42 @@ def compute_geodesic_distance_from_two_matrices(m1, m2):
     #theta = torch.min(theta, 2*np.pi - theta)
 
     return theta
+
+
+#axisAngle batch*3*3s angle, x,y,z
+def get_sampled_rotation_matrices_by_axisAngle(batch):
+
+    theta = torch.autograd.Variable(
+        torch.FloatTensor(np.random.uniform(-1, 1, batch) *
+                          np.pi).cuda())  #[0, pi] #[-180, 180]
+    sin = torch.sin(theta)
+    axis = torch.autograd.Variable(torch.randn(batch, 3).cuda())
+    axis = normalize_vector(axis)  #batch*3
+    qw = torch.cos(theta)
+    qx = axis[:, 0] * sin
+    qy = axis[:, 1] * sin
+    qz = axis[:, 2] * sin
+
+    # Unit quaternion rotation matrices computatation
+    xx = (qx * qx).view(batch, 1)
+    yy = (qy * qy).view(batch, 1)
+    zz = (qz * qz).view(batch, 1)
+    xy = (qx * qy).view(batch, 1)
+    xz = (qx * qz).view(batch, 1)
+    yz = (qy * qz).view(batch, 1)
+    xw = (qx * qw).view(batch, 1)
+    yw = (qy * qw).view(batch, 1)
+    zw = (qz * qw).view(batch, 1)
+
+    row0 = torch.cat((1 - 2 * yy - 2 * zz, 2 * xy - 2 * zw, 2 * xz + 2 * yw),
+                     1)  #batch*3
+    row1 = torch.cat((2 * xy + 2 * zw, 1 - 2 * xx - 2 * zz, 2 * yz - 2 * xw),
+                     1)  #batch*3
+    row2 = torch.cat((2 * xz - 2 * yw, 2 * yz + 2 * xw, 1 - 2 * xx - 2 * yy),
+                     1)  #batch*3
+
+    matrix = torch.cat(
+        (row0.view(batch, 1, 3), row1.view(batch, 1, 3), row2.view(
+            batch, 1, 3)), 1)  #batch*3*3
+
+    return matrix
