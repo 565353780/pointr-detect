@@ -7,9 +7,9 @@ from torch import nn
 from points_shape_detect.Lib.chamfer_dist import ChamferDistanceL1
 from points_shape_detect.Loss.ious import IoULoss
 from points_shape_detect.Method.sample import fps
+from points_shape_detect.Method.weight import setWeight
 from points_shape_detect.Model.fold import Fold
 from points_shape_detect.Model.pc_transformer import PCTransformer
-from points_shape_detect.Method.weight import setWeight
 
 
 class BBoxNet(nn.Module):
@@ -169,8 +169,8 @@ class BBoxNet(nn.Module):
 
         data['predictions']['scale_inv'] = scale_inv
 
-        if self.training:
-            data = self.lossScale(data)
+        #  if self.training:
+        data = self.lossScale(data)
         return data
 
     def lossScale(self, data):
@@ -202,8 +202,8 @@ class BBoxNet(nn.Module):
         data['predictions']['origin_bbox'] = origin_bbox
         data['predictions']['origin_center'] = origin_center
 
-        if self.training:
-            data = self.lossOriginBBox(data)
+        #  if self.training:
+        data = self.lossOriginBBox(data)
         return data
 
     def lossOriginBBox(self, data):
@@ -275,8 +275,8 @@ class BBoxNet(nn.Module):
         data['predictions']['origin_coarse_points'] = origin_coarse_points
         data['predictions']['origin_dense_points'] = origin_dense_points
 
-        if self.training:
-            data = self.lossOriginComplete(data)
+        #  if self.training:
+        data = self.lossOriginComplete(data)
         return data
 
     def lossOriginComplete(self, data):
@@ -294,8 +294,8 @@ class BBoxNet(nn.Module):
         return data
 
     def addWeight(self, data):
-        if not self.training:
-            return data
+        #  if not self.training:
+            #  return data
 
         data = setWeight(data, 'loss_scale_inv_l1', 1000)
 
