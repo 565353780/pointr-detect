@@ -108,6 +108,35 @@ class CADDataset(Dataset):
                                                  file_name)
         return True
 
+    def getRotateData(self, idx, training=True):
+        if self.training:
+            idx = self.train_idx_list[idx]
+        else:
+            idx = self.eval_idx_list[idx]
+
+        cad_model_file_path = self.cad_model_file_path_list[idx]
+
+        data = {'inputs': {}, 'predictions': {}, 'losses': {}, 'logs': {}}
+
+        point_array = IO.get(cad_model_file_path).astype(np.float32)
+        origin_point_array = normalizePointArray(point_array)
+
+        origin_point_array = torch.from_numpy(origin_point_array).to(
+            torch.float32).cuda()
+
+        translate = ((torch.rand(3) - 0.5) * 1000).to(torch.float32).cuda()
+        euler_angle = torch.tensor([0.0, 0.0, 0.0], dtype=torch.float32).cuda()
+        scale = (1.0 + ((torch.rand(3) - 0.5) * 0.2)).to(torch.float32).cuda()
+
+        trans_point_array = transPointArray(origin_point_array, translate,
+                                            euler_angle, scale).unsqueeze(0)
+
+        data['inputs']['trans_point_array'] = trans_point_array
+
+        if training:
+            data['inputs']['scale'] = scale
+        return data
+
     def __getitem__(self, idx, training=True):
         if self.training:
             idx = self.train_idx_list[idx]
