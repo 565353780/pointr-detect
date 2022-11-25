@@ -38,8 +38,8 @@ class Trainer(object):
 
     def __init__(self):
         self.batch_size = 24
-        self.lr = 5e-6
-        self.weight_decay = 5e-6
+        self.lr = 5e-7
+        self.weight_decay = 5e-7
         self.decay_step = 21
         self.lr_decay = 0.76
         self.lowest_decay = 0.02
@@ -179,6 +179,8 @@ class Trainer(object):
 
     def trainStep(self, data):
         self.model.train()
+        self.model.zero_grad()
+        self.optimizer.zero_grad()
 
         toCuda(data)
         data = self.preProcessData(data)
@@ -211,8 +213,6 @@ class Trainer(object):
 
         loss_sum.backward()
         self.optimizer.step()
-        self.model.zero_grad()
-        #  self.optimizer.zero_grad()
         return True
 
     def evalStep(self, data):
