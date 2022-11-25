@@ -121,7 +121,7 @@ class CADDataset(Dataset):
         origin_point_array = normalizePointArray(point_array)
 
         translate = (np.random.rand(3) - 0.5) * 1000
-        euler_angle = (np.random.rand(3) - 0.5) * 360.0
+        euler_angle = np.random.rand(3) * 360.0
         scale = 1.0 + ((np.random.rand(3) - 0.5) * 0.2)
 
         trans_point_array = transPointArray(origin_point_array, translate,
