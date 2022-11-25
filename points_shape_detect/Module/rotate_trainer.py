@@ -30,7 +30,7 @@ from points_shape_detect.Method.render import (renderPointArray,
 class RotateTrainer(object):
 
     def __init__(self):
-        self.batch_size = 24
+        self.batch_size = 64
         self.lr = 5e-5
         self.weight_decay = 5e-5
         self.decay_step = 21
@@ -51,18 +51,18 @@ class RotateTrainer(object):
         self.train_dataset = CADDataset()
         self.eval_dataset = CADDataset(False)
 
-        self.optimizer = Adam(self.model.parameters(), lr=self.lr)
+        #  self.optimizer = Adam(self.model.parameters(), lr=self.lr)
 
-        #  self.optimizer = AdamW(self.model.parameters(),
-        #  lr=self.lr,
-        #  weight_decay=self.weight_decay)
-        #  lr_lambda = lambda e: max(self.lr_decay**
-        #  (e / self.decay_step), self.lowest_decay)
-        #  self.scheduler = LambdaLR(self.optimizer, lr_lambda)
-        #  bnm_lambda = lambda e: max(
-        #  self.bn_momentum * self.bn_decay**
-        #  (e / self.bn_decay_step), self.bn_lowest_decay)
-        #  self.bn_scheduler = BNMomentumScheduler(self.model, bnm_lambda)
+        self.optimizer = AdamW(self.model.parameters(),
+                               lr=self.lr,
+                               weight_decay=self.weight_decay)
+        lr_lambda = lambda e: max(self.lr_decay**
+                                  (e / self.decay_step), self.lowest_decay)
+        self.scheduler = LambdaLR(self.optimizer, lr_lambda)
+        bnm_lambda = lambda e: max(
+            self.bn_momentum * self.bn_decay**
+            (e / self.bn_decay_step), self.bn_lowest_decay)
+        self.bn_scheduler = BNMomentumScheduler(self.model, bnm_lambda)
 
         self.summary_writer = None
         return
@@ -238,6 +238,7 @@ class RotateTrainer(object):
 
     def train(self, print_progress=False):
         total_epoch = 10000000
+        repeat_num = 100
 
         self.model.zero_grad()
         for epoch in range(total_epoch):
@@ -253,9 +254,10 @@ class RotateTrainer(object):
             if print_progress:
                 for_data = tqdm(for_data)
             for data_idx in for_data:
-                data = self.train_dataset.getRotateData(data_idx)
-                self.trainStep(data)
-                self.step += 1
+                for _ in range(repeat_num):
+                    data = self.train_dataset.getRotateData(data_idx)
+                    self.trainStep(data)
+                    self.step += 1
 
             self.scheduler.step()
             self.bn_scheduler.step()
