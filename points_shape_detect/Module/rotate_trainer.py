@@ -4,7 +4,7 @@
 import os
 
 import torch
-from torch.optim import AdamW
+from torch.optim import AdamW, Adam
 from torch.optim.lr_scheduler import LambdaLR
 from tqdm import tqdm
 
@@ -51,9 +51,12 @@ class RotateTrainer(object):
         self.train_dataset = CADDataset()
         self.eval_dataset = CADDataset(False)
 
-        self.optimizer = AdamW(self.model.parameters(),
-                               lr=self.lr,
-                               weight_decay=self.weight_decay)
+        self.optimizer = Adam(self.model.parameters(), lr=self.lr)
+
+        #  self.optimizer = AdamW(self.model.parameters(),
+        #  lr=self.lr,
+        #  weight_decay=self.weight_decay)
+
         lr_lambda = lambda e: max(self.lr_decay**
                                   (e / self.decay_step), self.lowest_decay)
         self.scheduler = LambdaLR(self.optimizer, lr_lambda)
@@ -130,18 +133,18 @@ class RotateTrainer(object):
         origin_sample_point_array = trans_sample_point_array[
             0] - query_points_center
 
-        batch_origin_point_array = origin_point_array.expand(
+        batch_origin_point_array = origin_point_array.unsqueeze(0).expand(
             self.batch_size, -1, -1)
         batch_origin_sample_point_array = origin_sample_point_array.unsqueeze(
             0).expand(self.batch_size, -1, -1)
 
         batch_rotate_matrix = get_sampled_rotation_matrices_by_axisAngle(
-            self.batch_size)
+            self.batch_size).detach()
 
         batch_origin_point_array = torch.bmm(batch_origin_point_array,
-                                             batch_rotate_matrix)
+                                             batch_rotate_matrix).detach()
         batch_origin_query_point_array = torch.bmm(
-            batch_origin_sample_point_array, batch_rotate_matrix)
+            batch_origin_sample_point_array, batch_rotate_matrix).detach()
 
         data['inputs']['origin_point_array'] = batch_origin_point_array
         data['inputs'][
