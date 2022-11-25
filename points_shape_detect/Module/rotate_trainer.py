@@ -30,9 +30,9 @@ from points_shape_detect.Method.render import (renderPointArray,
 class RotateTrainer(object):
 
     def __init__(self):
-        self.batch_size = 10
-        self.lr = 1e-5
-        self.weight_decay = 1e-5
+        self.batch_size = 24
+        self.lr = 5e-5
+        self.weight_decay = 5e-5
         self.decay_step = 21
         self.lr_decay = 0.76
         self.lowest_decay = 0.02
@@ -56,14 +56,14 @@ class RotateTrainer(object):
         #  self.optimizer = AdamW(self.model.parameters(),
         #  lr=self.lr,
         #  weight_decay=self.weight_decay)
+        #  lr_lambda = lambda e: max(self.lr_decay**
+        #  (e / self.decay_step), self.lowest_decay)
+        #  self.scheduler = LambdaLR(self.optimizer, lr_lambda)
+        #  bnm_lambda = lambda e: max(
+        #  self.bn_momentum * self.bn_decay**
+        #  (e / self.bn_decay_step), self.bn_lowest_decay)
+        #  self.bn_scheduler = BNMomentumScheduler(self.model, bnm_lambda)
 
-        lr_lambda = lambda e: max(self.lr_decay**
-                                  (e / self.decay_step), self.lowest_decay)
-        self.scheduler = LambdaLR(self.optimizer, lr_lambda)
-        bnm_lambda = lambda e: max(
-            self.bn_momentum * self.bn_decay**
-            (e / self.bn_decay_step), self.bn_lowest_decay)
-        self.bn_scheduler = BNMomentumScheduler(self.model, bnm_lambda)
         self.summary_writer = None
         return
 
@@ -119,33 +119,37 @@ class RotateTrainer(object):
         renameFile(tmp_save_model_file_path, save_model_file_path)
         return True
 
-    @torch.no_grad()
     def preProcessData(self, data):
-        trans_point_array = data['inputs']['trans_point_array']
+        with torch.no_grad():
+            trans_point_array = data['inputs']['trans_point_array']
 
-        trans_sample_point_array, _ = seprate_point_cloud(
-            trans_point_array, [0.0, 0.75])
+            trans_sample_point_array, _ = seprate_point_cloud(
+                trans_point_array, [0.0, 0.75])
 
-        points_center = torch.mean(trans_point_array[0], 0)
-        query_points_center = torch.mean(trans_sample_point_array[0], 0)
+            points_center = torch.mean(trans_point_array[0], 0)
+            query_points_center = torch.mean(trans_sample_point_array[0], 0)
 
-        origin_point_array = trans_point_array[0] - points_center
-        origin_sample_point_array = trans_sample_point_array[
-            0] - query_points_center
+            rotate_back_point_array = trans_point_array[0] - points_center
+            rotate_back_sample_point_array = trans_sample_point_array[
+                0] - query_points_center
 
-        batch_origin_point_array = origin_point_array.unsqueeze(0).expand(
-            self.batch_size, -1, -1)
-        batch_origin_sample_point_array = origin_sample_point_array.unsqueeze(
-            0).expand(self.batch_size, -1, -1)
+        batch_rotate_back_point_array = rotate_back_point_array.unsqueeze(
+            0).expand(self.batch_size, -1, -1).contiguous().detach()
+        batch_rotate_back_sample_point_array = rotate_back_sample_point_array.unsqueeze(
+            0).expand(self.batch_size, -1, -1).contiguous().detach()
 
         batch_rotate_matrix = get_sampled_rotation_matrices_by_axisAngle(
-            self.batch_size).detach()
+            self.batch_size)
 
-        batch_origin_point_array = torch.bmm(batch_origin_point_array,
-                                             batch_rotate_matrix).detach()
+        batch_origin_point_array = torch.bmm(batch_rotate_back_point_array,
+                                             batch_rotate_matrix)
         batch_origin_query_point_array = torch.bmm(
-            batch_origin_sample_point_array, batch_rotate_matrix).detach()
+            batch_rotate_back_sample_point_array, batch_rotate_matrix)
 
+        data['inputs'][
+            'rotate_back_point_array'] = batch_rotate_back_point_array
+        data['inputs'][
+            'rotate_back_query_point_array'] = batch_rotate_back_sample_point_array
         data['inputs']['origin_point_array'] = batch_origin_point_array
         data['inputs'][
             'origin_query_point_array'] = batch_origin_query_point_array
