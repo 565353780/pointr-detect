@@ -42,7 +42,7 @@ class CADDataset(Dataset):
         self.cad_model_file_path_list = []
         return True
 
-    def updateIdx(self):
+    def updateIdx(self, random=False):
         model_num = len(self.cad_model_file_path_list)
         if model_num == 1:
             self.train_idx_list = [0]
@@ -57,9 +57,12 @@ class CADDataset(Dataset):
         elif train_model_num == model_num:
             train_model_num -= 1
 
-        random_idx_list = np.random.choice(np.arange(model_num),
-                                           size=model_num,
-                                           replace=False)
+        if random:
+            random_idx_list = np.random.choice(np.arange(model_num),
+                                               size=model_num,
+                                               replace=False)
+        else:
+            random_idx_list = np.arange(model_num)
 
         self.train_idx_list = random_idx_list[:train_model_num]
         self.eval_idx_list = random_idx_list[train_model_num:]
@@ -127,13 +130,9 @@ class CADDataset(Dataset):
             trans_point_array).float()
 
         if training:
-            translate_inv, euler_angle_inv, scale_inv = getInverseTrans(
-                translate, euler_angle, scale)
-
-            data['inputs']['euler_angle_inv'] = torch.from_numpy(
-                euler_angle_inv).to(torch.float32)
-            data['inputs']['scale_inv'] = torch.from_numpy(scale_inv).to(
+            data['inputs']['euler_angle'] = torch.from_numpy(euler_angle).to(
                 torch.float32)
+            data['inputs']['scale'] = torch.from_numpy(scale).to(torch.float32)
         return data
 
     def __len__(self):
