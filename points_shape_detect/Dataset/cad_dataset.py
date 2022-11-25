@@ -13,6 +13,7 @@ from points_shape_detect.Data.io import IO
 from points_shape_detect.Method.trans import (getInverseTrans,
                                               normalizePointArray,
                                               transPointArray)
+from points_shape_detect.Method.matrix import getRotateMatrix
 
 sys.path.append("../auto-cad-recon")
 sys.path.append("../mesh-manage/")
@@ -130,8 +131,9 @@ class CADDataset(Dataset):
             trans_point_array).float()
 
         if training:
-            data['inputs']['euler_angle'] = torch.from_numpy(euler_angle).to(
-                torch.float32)
+            rotate_matrix = getRotateMatrix(euler_angle)
+            data['inputs']['rotate_matrix'] = torch.from_numpy(
+                rotate_matrix).to(torch.float32)
             data['inputs']['scale'] = torch.from_numpy(scale).to(torch.float32)
         return data
 
