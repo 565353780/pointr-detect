@@ -30,10 +30,6 @@ class BBoxNet(nn.Module):
                                             nn.LeakyReLU(negative_slope=0.2),
                                             nn.Conv1d(3, 3, 1))
 
-        self.scale_decoder = nn.Sequential(nn.Conv1d(self.trans_dim, 3, 1),
-                                           nn.LeakyReLU(negative_slope=0.2),
-                                           nn.Conv1d(3, 3, 1))
-
         self.l1_loss = nn.SmoothL1Loss()
         return
 
@@ -49,30 +45,6 @@ class BBoxNet(nn.Module):
             origin_reduce_global_feature.reshape(B, -1, 1))
 
         data['predictions']['origin_bbox_feature'] = origin_bbox_feature
-        return data
-
-    def encodeScale(self, data):
-        # BxCx1
-        origin_bbox_feature = data['predictions']['origin_bbox_feature']
-
-        B = origin_bbox_feature.shape[0]
-
-        # BxCx1 -[scale_decoder]-> Bx3x1 -[reshape]-> Bx3
-        scale = self.scale_decoder(origin_bbox_feature).reshape(B, -1)
-
-        data['predictions']['scale'] = scale
-
-        #  if self.training:
-        data = self.lossScale(data)
-        return data
-
-    def lossScale(self, data):
-        scale = data['predictions']['scale']
-        gt_scale = data['inputs']['scale']
-
-        loss_scale_l1 = self.l1_loss(scale, gt_scale)
-
-        data['losses']['loss_scale_l1'] = loss_scale_l1
         return data
 
     def encodeOriginBBox(self, data):
@@ -114,8 +86,6 @@ class BBoxNet(nn.Module):
         #  if not self.training:
         #  return data
 
-        data = setWeight(data, 'loss_scale_l1', 1000)
-
         data = setWeight(data, 'loss_origin_bbox_l1', 1000)
         data = setWeight(data, 'loss_origin_center_l1', 1000)
         data = setWeight(data, 'loss_origin_bbox_eiou', 100, max_value=100)
@@ -123,8 +93,6 @@ class BBoxNet(nn.Module):
 
     def forward(self, data):
         data = self.encodeOriginBBoxFeature(data)
-
-        data = self.encodeScale(data)
 
         data = self.encodeOriginBBox(data)
 
