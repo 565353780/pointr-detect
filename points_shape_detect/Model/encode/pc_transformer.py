@@ -81,7 +81,6 @@ class Attention(nn.Module):
         super().__init__()
         self.num_heads = num_heads
         head_dim = dim // num_heads
-        # NOTE scale factor was wrong in my original version, can set manually to be compat with prev weights
         self.scale = qk_scale or head_dim**-0.5
 
         self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias)
@@ -93,8 +92,7 @@ class Attention(nn.Module):
         B, N, C = x.shape
         qkv = self.qkv(x).reshape(B, N, 3, self.num_heads,
                                   C // self.num_heads).permute(2, 0, 3, 1, 4)
-        q, k, v = qkv[0], qkv[1], qkv[
-            2]  # make torchscript happy (cannot use tensor as tuple)
+        q, k, v = qkv[0], qkv[1], qkv[2]
 
         attn = (q @ k.transpose(-2, -1)) * self.scale
         attn = attn.softmax(dim=-1)
@@ -121,7 +119,6 @@ class CrossAttention(nn.Module):
         self.dim = dim
         self.out_dim = out_dim
         head_dim = out_dim // num_heads
-        # NOTE scale factor was wrong in my original version, can set manually to be compat with prev weights
         self.scale = qk_scale or head_dim**-0.5
 
         self.q_map = nn.Linear(dim, out_dim, bias=qkv_bias)
@@ -187,7 +184,7 @@ class DecoderBlock(nn.Module):
                                    qk_scale=qk_scale,
                                    attn_drop=attn_drop,
                                    proj_drop=drop)
-        # NOTE: drop path for stochastic depth, we shall see if this is better than dropout here
+
         self.drop_path = DropPath(
             drop_path) if drop_path > 0. else nn.Identity()
         self.norm2 = norm_layer(dim)
@@ -234,7 +231,6 @@ class DecoderBlock(nn.Module):
 
         q = q + self.drop_path(q_2)
 
-        # q = q + self.drop_path(self.attn(self.norm_q(q), self.norm_v(v)))
         q = q + self.drop_path(self.mlp(self.norm2(q)))
         return q
 
@@ -260,7 +256,6 @@ class Block(nn.Module):
                               qk_scale=qk_scale,
                               attn_drop=attn_drop,
                               proj_drop=drop)
-        # NOTE: drop path for stochastic depth, we shall see if this is better than dropout here
         self.drop_path = DropPath(
             drop_path) if drop_path > 0. else nn.Identity()
         self.norm2 = norm_layer(dim)
@@ -277,7 +272,6 @@ class Block(nn.Module):
                        drop=drop)
 
     def forward(self, x, knn_index=None):
-        # x = x + self.drop_path(self.attn(self.norm1(x)))
         norm_x = self.norm1(x)
         x_1 = self.attn(norm_x)
 
