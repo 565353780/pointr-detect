@@ -126,15 +126,12 @@ class CADDataset(Dataset):
 
         translate = ((torch.rand(3) - 0.5) * 1000).to(torch.float32).cuda()
         euler_angle = torch.tensor([0.0, 0.0, 0.0], dtype=torch.float32).cuda()
-        scale = (1.0 + ((torch.rand(3) - 0.5) * 0.2)).to(torch.float32).cuda()
+        scale = (1.0 + ((torch.rand(3) - 0.5) * 0.1)).to(torch.float32).cuda()
 
         trans_point_array = transPointArray(origin_point_array, translate,
                                             euler_angle, scale).unsqueeze(0)
 
         data['inputs']['trans_point_array'] = trans_point_array
-
-        if training:
-            data['inputs']['scale'] = scale
         return data
 
     def __getitem__(self, idx, training=True):
@@ -152,7 +149,7 @@ class CADDataset(Dataset):
 
         translate = (np.random.rand(3) - 0.5) * 1000
         euler_angle = np.random.rand(3) * 360.0
-        scale = 1.0 + ((np.random.rand(3) - 0.5) * 0.2)
+        scale = 1.0 + ((np.random.rand(3) - 0.5) * 0.1)
 
         trans_point_array = transPointArray(origin_point_array, translate,
                                             euler_angle, scale)
@@ -163,7 +160,6 @@ class CADDataset(Dataset):
             rotate_matrix = getRotateMatrix(euler_angle)
             data['inputs']['rotate_matrix'] = torch.from_numpy(
                 rotate_matrix).to(torch.float32)
-            data['inputs']['scale'] = torch.from_numpy(scale).to(torch.float32)
         return data
 
     def __len__(self):
