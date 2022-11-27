@@ -32,19 +32,12 @@ class ContinusRotateNet(nn.Module):
 
     def encodeRotateMatrix(self, data):
         # B*N*3
-        #  pt1 = data['inputs']['rotate_back_query_point_array']
-        # B*N*3
         pt2 = data['inputs']['origin_query_point_array']
 
         B, N, _ = pt2.shape
 
         # Bx1024
-        #  feature_pt1 = self.feature_extracter(pt1.transpose(1, 2)).view(B, -1)
-        # Bx1024
         feature_pt2 = self.feature_extracter(pt2.transpose(1, 2)).view(B, -1)
-
-        # Bx2048
-        #  f = torch.cat((feature_pt1, feature_pt2), 1)
 
         # Bx6
         rotation = self.mlp(feature_pt2)
@@ -55,11 +48,11 @@ class ContinusRotateNet(nn.Module):
         data['predictions']['rotation'] = rotation
         data['predictions']['rotate_matrix'] = rotate_matrix
 
-        #  if self.training:
-        data = self.lossRotate(data)
+        if self.training:
+            data = self.lossRotate(data)
 
-        #  if self.training:
-        data = self.encodeCompleteRotateMatrix(data)
+        if self.training:
+            data = self.encodeCompleteRotateMatrix(data)
         return data
 
     def lossRotate(self, data):
@@ -77,19 +70,12 @@ class ContinusRotateNet(nn.Module):
 
     def encodeCompleteRotateMatrix(self, data):
         # B*N*3
-        #  pt1 = data['inputs']['rotate_back_point_array']
-        # B*N*3
         pt2 = data['inputs']['origin_point_array']
 
         B, N, _ = pt2.shape
 
         # Bx1024
-        #  feature_pt1 = self.feature_extracter(pt1.transpose(1, 2)).view(B, -1)
-        # Bx1024
         feature_pt2 = self.feature_extracter(pt2.transpose(1, 2)).view(B, -1)
-
-        # Bx2048
-        #  f = torch.cat((feature_pt1, feature_pt2), 1)
 
         # Bx6
         rotation = self.mlp(feature_pt2)
@@ -100,8 +86,8 @@ class ContinusRotateNet(nn.Module):
         data['predictions']['complete_rotation'] = rotation
         data['predictions']['complete_rotate_matrix'] = rotate_matrix
 
-        #  if self.training:
-        data = self.lossCompleteRotate(data)
+        if self.training:
+            data = self.lossCompleteRotate(data)
         return data
 
     def lossCompleteRotate(self, data):
@@ -120,7 +106,6 @@ class ContinusRotateNet(nn.Module):
 
     @torch.no_grad()
     def rotateBackByPredict(self, data):
-        pt1 = data['inputs']['origin_point_array']
         pt2 = data['inputs']['origin_query_point_array']
         rotate_matrix = data['predictions']['rotate_matrix']
 
@@ -128,20 +113,16 @@ class ContinusRotateNet(nn.Module):
 
         B, N, _ = pt2.shape
 
-        rotate_back_point_array = torch.bmm(pt1, rotate_matrix_inv).detach()
-
         rotate_back_query_point_array = torch.bmm(pt2,
                                                   rotate_matrix_inv).detach()
 
-        data['predictions'][
-            'rotate_back_point_array'] = rotate_back_point_array
         data['predictions'][
             'rotate_back_query_point_array'] = rotate_back_query_point_array
         return data
 
     def addWeight(self, data):
-        #  if not self.training:
-        #  return data
+        if not self.training:
+            return data
 
         data = setWeight(data, 'loss_rotate_matrix', 1)
         #  data = setWeight(data, 'loss_geodesic', 1)
@@ -153,7 +134,8 @@ class ContinusRotateNet(nn.Module):
     def forward(self, data):
         data = self.encodeRotateMatrix(data)
 
-        #  data = self.rotateBackByPredict(data)
+        if not self.training:
+            data = self.rotateBackByPredict(data)
 
         data = self.addWeight(data)
         return data

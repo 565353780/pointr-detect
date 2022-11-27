@@ -137,54 +137,61 @@ def renderRotateBackUDF(data):
 
 
 def renderRotateBackPoints(data):
-    assert 'origin_point_array' in data['inputs'].keys()
     assert 'origin_query_point_array' in data['inputs'].keys()
-    assert 'rotate_back_point_array' in data['inputs'].keys()
-    assert 'rotate_back_query_point_array' in data['inputs'].keys()
+    assert 'rotate_back_query_point_array' in data['predictions'].keys()
 
     distance = 3
 
     render_list = []
 
-    origin_point_array = data['inputs']['origin_point_array'].cpu().numpy()[0]
     origin_query_point_array = data['inputs']['origin_query_point_array'].cpu(
     ).numpy()[0]
-    rotate_back_point_array = data['inputs']['rotate_back_point_array'].cpu(
-    ).numpy()[0]
-    rotate_back_query_point_array = data['inputs'][
+    rotate_back_query_point_array = data['predictions'][
         'rotate_back_query_point_array'].cpu().numpy()[0]
 
-    origin_point_array_pcd = getPCDFromPointArray(origin_point_array)
     origin_query_point_array_pcd = getPCDFromPointArray(
         origin_query_point_array)
-    rotate_back_point_array_pcd = getPCDFromPointArray(rotate_back_point_array)
     rotate_back_query_point_array_pcd = getPCDFromPointArray(
         rotate_back_query_point_array)
 
     origin_query_point_array_pcd.translate([0, 0, distance])
-    rotate_back_point_array_pcd.translate([distance, 0, 0])
     rotate_back_query_point_array_pcd.translate([distance, 0, distance])
 
-    render_list.append(origin_point_array_pcd)
     render_list.append(origin_query_point_array_pcd)
-    render_list.append(rotate_back_point_array_pcd)
     render_list.append(rotate_back_query_point_array_pcd)
 
     render_list.append(
         getOpen3DBBoxFromBBox(
-            BBox.fromList([[-0.5, -0.5, -0.5], [0.5, 0.5, 0.5]])))
-    render_list.append(
-        getOpen3DBBoxFromBBox(
             BBox.fromList([[-0.5, -0.5, -0.5 + distance],
                            [0.5, 0.5, 0.5 + distance]])))
-    render_list.append(
-        getOpen3DBBoxFromBBox(
-            BBox.fromList([[-0.5 + distance, -0.5, -0.5],
-                           [0.5 + distance, 0.5, 0.5]])))
+
     render_list.append(
         getOpen3DBBoxFromBBox(
             BBox.fromList([[-0.5 + distance, -0.5, -0.5 + distance],
                            [0.5 + distance, 0.5, 0.5 + distance]])))
+
+    if 'origin_point_array' in data['inputs'].keys():
+        origin_point_array = data['inputs']['origin_point_array'].cpu().numpy(
+        )[0]
+        rotate_back_point_array = data['inputs'][
+            'rotate_back_point_array'].cpu().numpy()[0]
+
+        origin_point_array_pcd = getPCDFromPointArray(origin_point_array)
+        rotate_back_point_array_pcd = getPCDFromPointArray(
+            rotate_back_point_array)
+
+        rotate_back_point_array_pcd.translate([distance, 0, 0])
+
+        render_list.append(origin_point_array_pcd)
+        render_list.append(rotate_back_point_array_pcd)
+
+        render_list.append(
+            getOpen3DBBoxFromBBox(
+                BBox.fromList([[-0.5, -0.5, -0.5], [0.5, 0.5, 0.5]])))
+        render_list.append(
+            getOpen3DBBoxFromBBox(
+                BBox.fromList([[-0.5 + distance, -0.5, -0.5],
+                               [0.5 + distance, 0.5, 0.5]])))
 
     o3d.visualization.draw_geometries(render_list)
     return True

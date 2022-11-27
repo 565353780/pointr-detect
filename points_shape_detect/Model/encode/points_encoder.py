@@ -80,6 +80,9 @@ class PointsEncoder(nn.Module):
         if self.training:
             return self.moveToOriginWithGT(data)
 
+        if 'origin_query_point_array' in data['inputs'].keys():
+            return data
+
         # Bx#pointx3
         trans_query_point_array = data['inputs']['trans_query_point_array']
 
