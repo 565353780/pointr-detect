@@ -4,7 +4,7 @@
 import os
 
 import torch
-from torch.optim import AdamW, Adam
+from torch.optim import AdamW
 from torch.optim.lr_scheduler import LambdaLR
 from tqdm import tqdm
 
@@ -50,8 +50,6 @@ class RotateTrainer(object):
 
         self.train_dataset = CADDataset()
         self.eval_dataset = CADDataset(False)
-
-        #  self.optimizer = Adam(self.model.parameters(), lr=self.lr)
 
         self.optimizer = AdamW(self.model.parameters(),
                                lr=self.lr,
@@ -238,7 +236,6 @@ class RotateTrainer(object):
 
     def train(self, print_progress=False):
         total_epoch = 10000000
-        repeat_num = 100
 
         self.model.zero_grad()
         for epoch in range(total_epoch):
@@ -254,10 +251,9 @@ class RotateTrainer(object):
             if print_progress:
                 for_data = tqdm(for_data)
             for data_idx in for_data:
-                for _ in range(repeat_num):
-                    data = self.train_dataset.getRotateData(data_idx)
-                    self.trainStep(data)
-                    self.step += 1
+                data = self.train_dataset.getRotateData(data_idx)
+                self.trainStep(data)
+                self.step += 1
 
             self.scheduler.step()
             self.bn_scheduler.step()
