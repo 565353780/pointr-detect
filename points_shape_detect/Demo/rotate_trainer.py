@@ -9,8 +9,7 @@ from points_shape_detect.Module.rotate_trainer import RotateTrainer
 
 
 def demo():
-    model_file_path = "./output/20221125_14:15:05/model_best.pth"
-    model_file_path = ""
+    model_file_path = "./output/pretrained_rotate/model_best.pth"
     resume_model_only = True
     print_progress = True
 

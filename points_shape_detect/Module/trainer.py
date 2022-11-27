@@ -36,8 +36,8 @@ class Trainer(object):
 
     def __init__(self):
         self.batch_size = 24
-        self.lr = 5e-5
-        self.weight_decay = 5e-5
+        self.lr = 1e-5
+        self.weight_decay = 1e-5
         self.decay_step = 21
         self.lr_decay = 0.76
         self.lowest_decay = 0.02
@@ -94,6 +94,14 @@ class Trainer(object):
             return True
 
         model_dict = torch.load(model_file_path)
+
+        #  from collections import OrderedDict
+        #  new_state_dict = OrderedDict()
+        #  for k, v in model_dict['model'].items():
+        #  if 'bbox_net.scale_decoder' in k:
+        #  continue
+        #  new_state_dict[k] = v
+        #  self.model.load_state_dict(new_state_dict)
 
         self.model.load_state_dict(model_dict['model'])
 
