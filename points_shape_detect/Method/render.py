@@ -1,16 +1,16 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import torch
-import numpy as np
-import open3d as o3d
 from random import randint
 
+import numpy as np
+import open3d as o3d
+import torch
 from udf_generate.Method.udfs import getVisualUDF
 
 from points_shape_detect.Data.bbox import BBox
-
-from points_shape_detect.Method.bbox import getOpen3DBBox, getOpen3DBBoxFromBBox
+from points_shape_detect.Method.bbox import (getOpen3DBBox,
+                                             getOpen3DBBoxFromBBox)
 
 
 def getPCDFromPointArray(point_array, color=None):
@@ -98,6 +98,8 @@ def renderRotateBackUDF(data):
     assert 'rotate_back_udf' in data['predictions'].keys()
     assert 'rotate_back_query_udf' in data['predictions'].keys()
 
+    distance = 3
+
     render_list = []
 
     origin_udf = data['predictions']['origin_udf'][0].cpu().numpy()
@@ -111,9 +113,9 @@ def renderRotateBackUDF(data):
     rotate_back_udf_pcd = getVisualUDF(rotate_back_udf)
     rotate_back_query_udf_pcd = getVisualUDF(rotate_back_query_udf)
 
-    origin_query_udf_pcd.translate([0, 0, 1])
-    rotate_back_udf_pcd.translate([1, 0, 0])
-    rotate_back_query_udf_pcd.translate([1, 0, 1])
+    origin_query_udf_pcd.translate([0, 0, distance])
+    rotate_back_udf_pcd.translate([distance, 0, 0])
+    rotate_back_query_udf_pcd.translate([distance, 0, distance])
 
     render_list.append(origin_udf_pcd)
     render_list.append(origin_query_udf_pcd)
@@ -125,13 +127,16 @@ def renderRotateBackUDF(data):
             BBox.fromList([[-0.5, -0.5, -0.5], [0.5, 0.5, 0.5]])))
     render_list.append(
         getOpen3DBBoxFromBBox(
-            BBox.fromList([[-0.5, -0.5, 0.5], [0.5, 0.5, 1.5]])))
+            BBox.fromList([[-0.5, -0.5, -0.5 + distance],
+                           [0.5, 0.5, 0.5 + distance]])))
     render_list.append(
         getOpen3DBBoxFromBBox(
-            BBox.fromList([[0.5, -0.5, -0.5], [1.5, 0.5, 0.5]])))
+            BBox.fromList([[-0.5 + distance, -0.5, -0.5],
+                           [0.5 + distance, 0.5, 0.5]])))
     render_list.append(
         getOpen3DBBoxFromBBox(
-            BBox.fromList([[0.5, -0.5, 0.5], [1.5, 0.5, 1.5]])))
+            BBox.fromList([[-0.5 + distance, -0.5, -0.5 + distance],
+                           [0.5 + distance, 0.5, 0.5 + distance]])))
 
     o3d.visualization.draw_geometries(render_list)
     return True
@@ -142,6 +147,8 @@ def renderRotateBackPoints(data):
     assert 'origin_query_point_array' in data['inputs'].keys()
     assert 'rotate_back_point_array' in data['inputs'].keys()
     assert 'rotate_back_query_point_array' in data['inputs'].keys()
+
+    distance = 3
 
     render_list = []
 
@@ -160,9 +167,9 @@ def renderRotateBackPoints(data):
     rotate_back_query_point_array_pcd = getPCDFromPointArray(
         rotate_back_query_point_array)
 
-    origin_query_point_array_pcd.translate([0, 0, 1])
-    rotate_back_point_array_pcd.translate([1, 0, 0])
-    rotate_back_query_point_array_pcd.translate([1, 0, 1])
+    origin_query_point_array_pcd.translate([0, 0, distance])
+    rotate_back_point_array_pcd.translate([distance, 0, 0])
+    rotate_back_query_point_array_pcd.translate([distance, 0, distance])
 
     render_list.append(origin_point_array_pcd)
     render_list.append(origin_query_point_array_pcd)
@@ -174,13 +181,16 @@ def renderRotateBackPoints(data):
             BBox.fromList([[-0.5, -0.5, -0.5], [0.5, 0.5, 0.5]])))
     render_list.append(
         getOpen3DBBoxFromBBox(
-            BBox.fromList([[-0.5, -0.5, 0.5], [0.5, 0.5, 1.5]])))
+            BBox.fromList([[-0.5, -0.5, -0.5 + distance],
+                           [0.5, 0.5, 0.5 + distance]])))
     render_list.append(
         getOpen3DBBoxFromBBox(
-            BBox.fromList([[0.5, -0.5, -0.5], [1.5, 0.5, 0.5]])))
+            BBox.fromList([[-0.5 + distance, -0.5, -0.5],
+                           [0.5 + distance, 0.5, 0.5]])))
     render_list.append(
         getOpen3DBBoxFromBBox(
-            BBox.fromList([[0.5, -0.5, 0.5], [1.5, 0.5, 1.5]])))
+            BBox.fromList([[-0.5 + distance, -0.5, -0.5 + distance],
+                           [0.5 + distance, 0.5, 0.5 + distance]])))
 
     o3d.visualization.draw_geometries(render_list)
     return True
