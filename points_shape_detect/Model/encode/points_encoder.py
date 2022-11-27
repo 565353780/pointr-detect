@@ -34,7 +34,7 @@ class PointsEncoder(nn.Module):
         return
 
     @torch.no_grad()
-    def moveToOrigin(self, data):
+    def moveToOriginWithGT(self, data):
         trans_point_array = data['inputs']['trans_point_array']
         # Bx#pointx3
         trans_query_point_array = data['inputs']['trans_query_point_array']
@@ -73,6 +73,29 @@ class PointsEncoder(nn.Module):
         data['inputs']['origin_query_point_array'] = origin_query_point_array
         data['inputs']['origin_bbox'] = origin_bbox
         data['inputs']['origin_center'] = origin_center
+        return data
+
+    @torch.no_grad()
+    def moveToOrigin(self, data):
+        if self.training:
+            return self.moveToOriginWithGT(data)
+
+        # Bx#pointx3
+        trans_query_point_array = data['inputs']['trans_query_point_array']
+
+        origin_query_points_list = []
+
+        for i in range(trans_query_point_array.shape[0]):
+            trans_query_points = trans_query_point_array[i]
+            trans_query_points_center = torch.mean(trans_query_points, 0)
+
+            origin_query_points = trans_query_points - trans_query_points_center
+
+            origin_query_points_list.append(origin_query_points.unsqueeze(0))
+
+        origin_query_point_array = torch.cat(origin_query_points_list).detach()
+
+        data['inputs']['origin_query_point_array'] = origin_query_point_array
         return data
 
     def encodeOriginPoints(self, data):

@@ -56,18 +56,12 @@ def renderPointArrayWithUnitBBox(point_array):
 
 
 def renderRebuildPatchPoints(data):
-    if 'coarse_point_cloud' not in data['predictions'].keys():
-        print("[ERROR][render::renderRebuildPatchPoints]")
-        print("\t please save coarse_point_cloud during model running!")
-        return False
-    if 'rebuild_patch_points' not in data['predictions'].keys():
-        print("[ERROR][render::renderRebuildPatchPoints]")
-        print("\t please save rebuild_patch_points during model running!")
-        return False
+    assert 'origin_coarse_point_cloud' in data['predictions'].keys()
+    assert 'origin_rebuild_patch_points' in data['predictions'].keys()
 
-    coarse_point_cloud = data['predictions']['coarse_point_cloud'][0].detach(
-    ).cpu().numpy()
-    rebuild_patch_points = data['predictions']['rebuild_patch_points'][
+    coarse_point_cloud = data['predictions']['origin_coarse_point_cloud'][
+        0].detach().cpu().numpy()
+    rebuild_patch_points = data['predictions']['origin_rebuild_patch_points'][
         0].detach().cpu().numpy()
     pcd = o3d.geometry.PointCloud()
     all_points = []
@@ -244,45 +238,38 @@ def renderTransBackPoints(data):
 
 
 def renderPredictBBox(data):
-    if 'trans_back_bbox' not in data['predictions'].keys():
-        print("[ERROR][render::renderPredictBBox]")
-        print("\t please save trans_back_bbox during model running!")
-        return False
-    if 'trans_back_center' not in data['predictions'].keys():
-        print("[ERROR][render::renderPredictBBox]")
-        print("\t please save trans_back_center during model running!")
-        return False
-    if 'dense_points' not in data['predictions'].keys():
-        print("[ERROR][render::renderPredictBBox]")
-        print("\t please save dense_points during model running!")
-        return False
+    assert 'origin_bbox' in data['predictions'].keys()
+    assert 'origin_center' in data['predictions'].keys()
+    assert 'origin_dense_points' in data['predictions'].keys()
 
     pcd_list = []
 
-    gt_bbox_list = data['predictions']['trans_back_bbox'][0].cpu().numpy(
-    ).reshape(2, 3)
-    gt_bbox = BBox.fromList(gt_bbox_list)
-    open3d_gt_bbox = getOpen3DBBoxFromBBox(gt_bbox, [0, 255, 0])
-    pcd_list.append(open3d_gt_bbox)
+    if 'origin_bbox' in data['inputs'].keys():
+        gt_bbox_list = data['inputs']['origin_bbox'][0].cpu().numpy().reshape(
+            2, 3)
+        gt_bbox = BBox.fromList(gt_bbox_list)
+        open3d_gt_bbox = getOpen3DBBoxFromBBox(gt_bbox, [0, 255, 0])
+        pcd_list.append(open3d_gt_bbox)
 
-    gt_center = data['predictions']['trans_back_center'][0].cpu().numpy(
-    ).reshape(1, 3)
-    gt_center_pcd = getPCDFromPointArray(gt_center, [0, 255, 0])
-    pcd_list.append(gt_center_pcd)
+    if 'origin_center' in data['inputs'].keys():
+        gt_center = data['inputs']['origin_center'][0].cpu().numpy().reshape(
+            1, 3)
+        gt_center_pcd = getPCDFromPointArray(gt_center, [0, 255, 0])
+        pcd_list.append(gt_center_pcd)
 
-    dense_points = data['predictions']['dense_points'][0].detach().cpu().numpy(
-    )
+    dense_points = data['predictions']['origin_dense_points'][0].detach().cpu(
+    ).numpy()
     dense_points_pcd = getPCDFromPointArray(dense_points, [0, 0, 255])
     pcd_list.append(dense_points_pcd)
 
-    bbox_list = data['predictions']['bbox'][0].detach().cpu().numpy().reshape(
-        2, 3)
+    bbox_list = data['predictions']['origin_bbox'][0].detach().cpu().numpy(
+    ).reshape(2, 3)
     bbox = BBox.fromList(bbox_list)
     open3d_bbox = getOpen3DBBoxFromBBox(bbox, [255, 0, 0])
     pcd_list.append(open3d_bbox)
 
-    center = data['predictions']['center'][0].detach().cpu().numpy().reshape(
-        1, 3)
+    center = data['predictions']['origin_center'][0].detach().cpu().numpy(
+    ).reshape(1, 3)
     center_pcd = getPCDFromPointArray(center, [255, 0, 0])
     pcd_list.append(center_pcd)
 

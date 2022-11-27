@@ -37,11 +37,12 @@ class Detector(object):
 
         data = {'inputs': {}, 'predictions': {}, 'losses': {}, 'logs': {}}
 
-        data['inputs']['point_array'] = torch.from_numpy(
+        points = torch.from_numpy(
             point_array.reshape(1, -1, 3).astype(np.float32)).cuda()
 
-        data['inputs']['query_point_array'] = fps(
-            data['inputs']['point_array'], 2048)
+        fps_points = fps(points, 2048)
+
+        data['inputs']['trans_query_point_array'] = fps_points
 
         data = self.model(data)
         return data

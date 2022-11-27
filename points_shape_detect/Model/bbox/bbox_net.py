@@ -62,8 +62,8 @@ class BBoxNet(nn.Module):
         data['predictions']['origin_bbox'] = origin_bbox
         data['predictions']['origin_center'] = origin_center
 
-        #  if self.training:
-        data = self.lossOriginBBox(data)
+        if self.training:
+            data = self.lossOriginBBox(data)
         return data
 
     def lossOriginBBox(self, data):
@@ -83,8 +83,8 @@ class BBoxNet(nn.Module):
         return data
 
     def addWeight(self, data):
-        #  if not self.training:
-        #  return data
+        if not self.training:
+            return data
 
         data = setWeight(data, 'loss_origin_bbox_l1', 1000)
         data = setWeight(data, 'loss_origin_center_l1', 1000)

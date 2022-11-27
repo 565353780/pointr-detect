@@ -20,7 +20,7 @@ from points_shape_detect.Module.detector import Detector
 
 
 def demo():
-    model_file_path = "./output/20221120_02:24:33/model_best.pth"
+    model_file_path = "./output/pretrained_bbox/model_best.pth"
     npy_file_path = "/home/chli/chLi/PoinTr/ShapeNet55/shapenet_pc/" + \
         "04090263-2eb7e88f5355630962a5697e98a94be.npy"
 
@@ -35,15 +35,16 @@ def demo():
 
     data = detector.detectPointArray(partial)
 
+    print(data['inputs'].keys())
     print(data['predictions'].keys())
-    renderPointArrayWithUnitBBox(data['predictions']['dense_points'][0])
+    renderPointArrayWithUnitBBox(data['predictions']['origin_dense_points'][0])
     renderRebuildPatchPoints(data)
     renderPredictBBox(data)
     return True
 
 
 def demo_mesh():
-    model_file_path = "./output/20221120_02:24:33/model_best.pth"
+    model_file_path = "./output/pretrained_bbox/model_best.pth"
     shapenet_model_file_path = "/home/chli/chLi/ShapeNet/Core/ShapeNetCore.v2/" + \
         "02691156/1a04e3eab45ca15dd86060f189eb133" + \
         "/models/model_normalized.obj"
@@ -63,7 +64,7 @@ def demo_mesh():
     data = detector.detectPointArray(partial)
 
     print(data['predictions'].keys())
-    renderPointArrayWithUnitBBox(data['predictions']['dense_points'][0])
+    renderPointArrayWithUnitBBox(data['predictions']['origin_dense_points'][0])
     renderRebuildPatchPoints(data)
     renderPredictBBox(data)
     return True

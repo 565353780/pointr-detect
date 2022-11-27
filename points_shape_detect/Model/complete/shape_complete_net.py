@@ -82,8 +82,8 @@ class ShapeCompleteNet(nn.Module):
         data['predictions']['origin_coarse_points'] = origin_coarse_points
         data['predictions']['origin_dense_points'] = origin_dense_points
 
-        #  if self.training:
-        data = self.lossOriginComplete(data)
+        if self.training:
+            data = self.lossOriginComplete(data)
         return data
 
     def lossOriginComplete(self, data):
@@ -101,8 +101,8 @@ class ShapeCompleteNet(nn.Module):
         return data
 
     def addWeight(self, data):
-        #  if not self.training:
-        #  return data
+        if not self.training:
+            return data
 
         data = setWeight(data, 'loss_origin_coarse', 1000)
         data = setWeight(data, 'loss_origin_fine', 1000)
