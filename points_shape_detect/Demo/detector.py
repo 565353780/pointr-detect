@@ -28,18 +28,20 @@ def demo():
 
     points = np.load(npy_file_path)
     points = normalizePointArray(points)
-    partial, _ = seprate_point_cloud(points, 0.5)
-    partial = moveToOrigin(partial)
 
-    renderPointArrayWithUnitBBox(partial)
+    for i in range(1000):
+        partial, _ = seprate_point_cloud(points, 0.5)
+        partial = moveToOrigin(partial)
 
-    data = detector.detectPointArray(partial)
+        #  renderPointArrayWithUnitBBox(partial)
 
-    print(data['inputs'].keys())
-    print(data['predictions'].keys())
-    renderPointArrayWithUnitBBox(data['predictions']['origin_dense_points'][0])
-    renderRebuildPatchPoints(data)
-    renderPredictBBox(data)
+        data = detector.detectPointArray(partial)
+
+        print(data['inputs'].keys())
+        print(data['predictions'].keys())
+        #  renderPointArrayWithUnitBBox(data['predictions']['origin_dense_points'][0])
+        #  renderRebuildPatchPoints(data)
+        renderPredictBBox(data)
     return True
 
 
