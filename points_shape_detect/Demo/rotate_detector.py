@@ -36,7 +36,6 @@ def demo():
 
         rotate_matrix = get_sampled_rotation_matrices_by_axisAngle(
             1).cpu().numpy()[0]
-
         partial = np.dot(partial, rotate_matrix)
 
         renderPointArrayWithUnitBBox(partial)
@@ -65,6 +64,10 @@ def demo_mesh():
 
     partial, _ = seprate_point_cloud(points, 0.5)
     partial = moveToOrigin(partial)
+    rotate_matrix = get_sampled_rotation_matrices_by_axisAngle(
+        1).cpu().numpy()[0]
+    partial = np.dot(partial, rotate_matrix)
+
     renderPointArrayWithUnitBBox(partial)
 
     data = rotate_detector.detectPointArray(partial)
