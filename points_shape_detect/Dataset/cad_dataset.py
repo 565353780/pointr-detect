@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 import os
-import sys
 
 import numpy as np
 import torch
@@ -14,13 +13,6 @@ from points_shape_detect.Method.trans import (getInverseTrans,
                                               normalizePointArray,
                                               transPointArray)
 from points_shape_detect.Method.matrix import getRotateMatrix
-
-sys.path.append("../auto-cad-recon")
-sys.path.append("../mesh-manage/")
-sys.path.append("../udf-generate/")
-sys.path.append("../scannet-dataset-manage")
-sys.path.append("../scan2cad-dataset-manage")
-sys.path.append("../shapenet-dataset-manage")
 
 from auto_cad_recon.Module.dataset_manager import DatasetManager
 

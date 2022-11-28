@@ -4,6 +4,11 @@
 import sys
 
 sys.path.append("../udf-generate")
+sys.path.append("../auto-cad-recon")
+sys.path.append("../mesh-manage/")
+sys.path.append("../scannet-dataset-manage")
+sys.path.append("../scan2cad-dataset-manage")
+sys.path.append("../shapenet-dataset-manage")
 
 from points_shape_detect.Module.trainer import Trainer
 
