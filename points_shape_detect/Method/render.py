@@ -138,7 +138,7 @@ def renderRotateBackUDF(data):
 
 def renderRotateBackPoints(data):
     assert 'origin_query_point_array' in data['inputs'].keys()
-    assert 'rotate_back_query_point_array' in data['predictions'].keys()
+    assert 'rotate_back_query_point_array' in data['inputs'].keys()
 
     distance = 3
 
@@ -146,7 +146,7 @@ def renderRotateBackPoints(data):
 
     origin_query_point_array = data['inputs']['origin_query_point_array'].cpu(
     ).numpy()[0]
-    rotate_back_query_point_array = data['predictions'][
+    rotate_back_query_point_array = data['inputs'][
         'rotate_back_query_point_array'].cpu().numpy()[0]
 
     origin_query_point_array_pcd = getPCDFromPointArray(

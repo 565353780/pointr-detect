@@ -77,7 +77,10 @@ def get_sampled_rotation_matrices_by_axisAngle(batch):
         torch.FloatTensor(np.random.uniform(-1, 1, batch) *
                           np.pi).cuda())  #[0, pi] #[-180, 180]
     sin = torch.sin(theta)
-    axis = torch.autograd.Variable(torch.randn(batch, 3).cuda())
+    #  axis = torch.autograd.Variable(torch.randn(batch, 3).cuda())
+    # FIXME: set only rotate via z-axis
+    axis = torch.autograd.Variable(torch.zeros(batch, 3).cuda())
+    axis[:, 1] = 1.0
     axis = normalize_vector(axis)  #batch*3
     qw = torch.cos(theta)
     qx = axis[:, 0] * sin
