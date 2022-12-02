@@ -48,11 +48,11 @@ class ContinusRotateNet(nn.Module):
         data['predictions']['rotation'] = rotation
         data['predictions']['rotate_matrix'] = rotate_matrix
 
-        if self.training:
-            data = self.lossRotate(data)
+        #  if self.training:
+        data = self.lossRotate(data)
 
-        if self.training:
-            data = self.encodeCompleteRotateMatrix(data)
+        #  if self.training:
+        data = self.encodeCompleteRotateMatrix(data)
         return data
 
     def lossRotate(self, data):
@@ -86,8 +86,8 @@ class ContinusRotateNet(nn.Module):
         data['predictions']['complete_rotation'] = rotation
         data['predictions']['complete_rotate_matrix'] = rotate_matrix
 
-        if self.training:
-            data = self.lossCompleteRotate(data)
+        #  if self.training:
+        data = self.lossCompleteRotate(data)
         return data
 
     def lossCompleteRotate(self, data):
@@ -121,8 +121,8 @@ class ContinusRotateNet(nn.Module):
         return data
 
     def addWeight(self, data):
-        if not self.training:
-            return data
+        #  if not self.training:
+        return data
 
         data = setWeight(data, 'loss_rotate_matrix', 1)
         #  data = setWeight(data, 'loss_geodesic', 1)
@@ -134,8 +134,8 @@ class ContinusRotateNet(nn.Module):
     def forward(self, data):
         data = self.encodeRotateMatrix(data)
 
-        if not self.training:
-            data = self.rotateBackByPredict(data)
+        #  if not self.training:
+        #  data = self.rotateBackByPredict(data)
 
         data = self.addWeight(data)
         return data
