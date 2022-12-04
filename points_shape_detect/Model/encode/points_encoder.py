@@ -39,13 +39,18 @@ class PointsEncoder(nn.Module):
         # Bx#pointx3
         trans_query_point_array = data['inputs']['trans_query_point_array']
 
+        trans_cad_point_array = data['inputs'].get('trans_cad_point_array')
+
         origin_points_list = []
         origin_query_points_list = []
         origin_bbox_list = []
         origin_center_list = []
 
         for i in range(trans_query_point_array.shape[0]):
-            trans_points = trans_point_array[i]
+            if trans_cad_point_array is not None:
+                trans_points = trans_cad_point_array[i]
+            else:
+                trans_points = trans_point_array[i]
             trans_query_points = trans_query_point_array[i]
             trans_query_points_center = torch.mean(trans_query_points, 0)
 

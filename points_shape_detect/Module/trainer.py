@@ -35,7 +35,7 @@ def worker_init_fn(worker_id):
 class Trainer(object):
 
     def __init__(self):
-        self.batch_size = 24
+        self.batch_size = 20
         self.lr = 1e-5
         self.weight_decay = 1e-5
         self.decay_step = 21
@@ -165,6 +165,7 @@ class Trainer(object):
 
             renderPointArrayList([
                 data['inputs']['trans_query_point_array'][0],
+                data['inputs']['trans_cad_point_array'][0],
                 data['inputs']['trans_point_array'][0],
             ])
 

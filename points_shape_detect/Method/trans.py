@@ -14,7 +14,26 @@ def getBatchResult(func, batch_data):
     return batch_result
 
 
-def normalizePointArrayTensor(point_array_tensor):
+def getBatchResultWithPair(func, batch_data, pair_batch_data=None):
+    if cad_batch_data is None:
+        return getBatchResult(func, batch_data)
+
+    batch_result_list = [[func(batch_data[i], pair_batch_data[i])]
+                         for i in range(batch_data.shape[0])]
+
+    batch_result = torch.cat([
+        batch_result_list[i][0].unsqueeze(0)
+        for i in range(batch_data.shape[0])
+    ])
+    pair_batch_result = torch.cat([
+        batch_result_list[i][1].unsqueeze(0)
+        for i in range(batch_data.shape[0])
+    ])
+    return batch_result, pair_batch_result
+
+
+def normalizePointArrayTensor(point_array_tensor,
+                              pair_point_array_tensor=None):
     min_point_tensor = torch.min(point_array_tensor, 0)[0]
     max_point_tensor = torch.max(point_array_tensor, 0)[0]
     min_max_point_tensor = torch.cat([min_point_tensor,
@@ -25,16 +44,23 @@ def normalizePointArrayTensor(point_array_tensor):
 
     max_bbox_length = torch.max(max_point_tensor - min_point_tensor)
     normalize_point_array_tensor = origin_point_array_tensor / max_bbox_length
-    return normalize_point_array_tensor
+
+    if pair_point_array_tensor is None:
+        return normalize_point_array_tensor
+
+    origin_pair_point_array_tensor = pair_point_array_tensor - center
+    normalize_pair_point_array_tensor = origin_pair_point_array_tensor / max_bbox_length
+    return normalize_point_array_tensor, normalize_pair_point_array_tensor
 
 
-def normalizePointArray(point_array):
+def normalizePointArray(point_array, pair_point_array=None):
     if isinstance(point_array, torch.Tensor):
         assert 2 <= len(point_array.shape) <= 3
         if len(point_array.shape) == 2:
-            return normalizePointArrayTensor(point_array)
+            return normalizePointArrayTensor(point_array, pair_point_array)
         else:
-            return getBatchResult(normalizePointArrayTensor, point_array)
+            return getBatchResultWithPair(normalizePointArrayTensor,
+                                          point_array, pair_point_array)
 
     min_point = np.min(point_array, axis=0)
     max_point = np.max(point_array, axis=0)
@@ -44,7 +70,13 @@ def normalizePointArray(point_array):
 
     max_bbox_length = np.max(max_point - min_point)
     normalize_point_array = origin_point_array / max_bbox_length
-    return normalize_point_array
+
+    if pair_point_array is None:
+        return normalize_point_array
+
+    origin_pair_point_array = pair_point_array - center
+    normalize_pair_point_array = origin_pair_point_array / max_bbox_length
+    return normalize_point_array, normalize_pair_point_array
 
 
 def getInverseTrans(translate, euler_angle, scale):

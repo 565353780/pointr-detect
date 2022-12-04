@@ -29,14 +29,16 @@ class IO:
         return f['data'][()]
 
     @classmethod
-    def _read_mesh(cls, file_path):
+    def _read_mesh(cls, file_path, trans_matrix=None):
         mesh = o3d.io.read_triangle_mesh(file_path)
         pcd = mesh.sample_points_uniformly(8192)
+        if trans_matrix is not None:
+            pcd.transform(trans_matrix)
         points = np.array(pcd.points)
         return points
 
     @classmethod
-    def get(cls, file_path):
+    def get(cls, file_path, trans_matrix=None):
         _, file_extension = os.path.splitext(file_path)
 
         if file_extension in ['.npy']:
@@ -48,6 +50,6 @@ class IO:
         elif file_extension in ['.txt']:
             return cls._read_txt(file_path)
         elif file_extension in ['.ply', '.obj']:
-            return cls._read_mesh(file_path)
+            return cls._read_mesh(file_path, trans_matrix)
         else:
             raise Exception('Unsupported file extension: %s' % file_extension)

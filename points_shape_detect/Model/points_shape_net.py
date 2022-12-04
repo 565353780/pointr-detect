@@ -33,8 +33,7 @@ class PointsShapeNet(nn.Module):
         rotate_back_query_point_array = torch.bmm(pt2,
                                                   rotate_matrix_inv).detach()
 
-        data['inputs'][
-            'rotate_back_point_array'] = rotate_back_point_array
+        data['inputs']['rotate_back_point_array'] = rotate_back_point_array
         data['inputs'][
             'rotate_back_query_point_array'] = rotate_back_query_point_array
         return data

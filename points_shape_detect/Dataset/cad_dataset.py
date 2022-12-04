@@ -2,19 +2,18 @@
 # -*- coding: utf-8 -*-
 
 import os
-
 import numpy as np
 import torch
+from auto_cad_recon.Module.dataset_manager import DatasetManager
 from torch.utils.data import Dataset
 from tqdm import tqdm
 
 from points_shape_detect.Data.io import IO
+from points_shape_detect.Method.matrix import getRotateMatrix
 from points_shape_detect.Method.trans import (getInverseTrans,
                                               normalizePointArray,
                                               transPointArray)
-from points_shape_detect.Method.matrix import getRotateMatrix
-
-from auto_cad_recon.Module.dataset_manager import DatasetManager
+from points_shape_detect.Method.path import createFileFolder, renameFile
 
 
 class CADDataset(Dataset):
@@ -24,10 +23,12 @@ class CADDataset(Dataset):
         self.training_percent = training_percent
 
         self.cad_model_file_path_list = []
+        self.cad_model_bbox_list = []
         self.train_idx_list = []
         self.eval_idx_list = []
 
-        self.loadShapeNet55()
+        self.loadScan2CAD()
+        #  self.loadShapeNet55()
         self.updateIdx()
         return
 
@@ -79,17 +80,61 @@ class CADDataset(Dataset):
 
         scene_name_list = dataset_manager.getScanNetSceneNameList()
 
+        normal_object_dataset_folder_path = scan2cad_dataset_folder_path + \
+            "normal_objects_npy/"
+
         print("[INFO][CADDataset::loadScan2CAD]")
         print("\t start load scan2cad dataset...")
+        load_num = 0
         for scene_name in tqdm(scene_name_list):
+            scene_folder_path = normal_object_dataset_folder_path + scene_name + "/"
+
             object_file_name_list = dataset_manager.getScanNetObjectFileNameList(
                 scene_name)
             for object_file_name in object_file_name_list:
+                load_num += 1
+                if load_num > 10:
+                    return True
+                object_npy_file_path = scene_folder_path + object_file_name.split(
+                    ".")[0] + "_obj.npy"
+                cad_npy_file_path = scene_folder_path + object_file_name.split(
+                    ".")[0] + "_cad.npy"
+
+                if os.path.exists(object_npy_file_path) and os.path.exists(
+                        cad_npy_file_path):
+                    self.cad_model_file_path_list.append(
+                        [object_npy_file_path, cad_npy_file_path])
+
+                    #  self.cad_model_file_path_list.append(cad_npy_file_path)
+                    continue
+
                 shapenet_model_dict = dataset_manager.getShapeNetModelDict(
                     scene_name, object_file_name)
-                cad_model_file_path = shapenet_model_dict[
+                scannet_object_file_path = shapenet_model_dict[
+                    'scannet_object_file_path']
+                shapenet_model_file_path = shapenet_model_dict[
                     'shapenet_model_file_path']
-                self.cad_model_file_path_list.append(cad_model_file_path)
+                trans_matrix_inv = shapenet_model_dict['trans_matrix_inv']
+
+                object_points = IO.get(scannet_object_file_path,
+                                       trans_matrix_inv)
+                cad_points = IO.get(shapenet_model_file_path)
+
+                tmp_object_npy_file_path = object_npy_file_path[:-4] + "_tmp.npy"
+                tmp_cad_npy_file_path = cad_npy_file_path[:-4] + "_tmp.npy"
+
+                createFileFolder(tmp_object_npy_file_path)
+                createFileFolder(tmp_cad_npy_file_path)
+
+                np.save(tmp_object_npy_file_path, object_points)
+                np.save(tmp_cad_npy_file_path, cad_points)
+
+                renameFile(tmp_object_npy_file_path, object_npy_file_path)
+                renameFile(tmp_cad_npy_file_path, cad_npy_file_path)
+
+                self.cad_model_file_path_list.append(
+                    [object_npy_file_path, cad_npy_file_path])
+                #  self.cad_model_file_path_list.append(cad_npy_file_path)
         return True
 
     def loadShapeNet55(self):
@@ -126,13 +171,48 @@ class CADDataset(Dataset):
         data['inputs']['trans_point_array'] = trans_point_array
         return data
 
-    def __getitem__(self, idx, training=True):
-        if self.training:
-            idx = self.train_idx_list[idx]
-        else:
-            idx = self.eval_idx_list[idx]
+    def getItemWithPair(self, cad_model_file_path, training=True):
+        data = {'inputs': {}, 'predictions': {}, 'losses': {}, 'logs': {}}
 
-        cad_model_file_path = self.cad_model_file_path_list[idx]
+        object_npy_file_path, cad_npy_file_path = cad_model_file_path
+
+        object_point_array = IO.get(object_npy_file_path).astype(np.float32)
+        cad_point_array = IO.get(cad_npy_file_path).astype(np.float32)
+
+        origin_point_array, origin_cad_point_array = normalizePointArray(
+            object_point_array, cad_point_array)
+
+        translate = (np.random.rand(3) - 0.5) * 1000
+        euler_angle = np.random.rand(3) * 360.0
+        scale = 1.0 + ((np.random.rand(3) - 0.5) * 0.1)
+
+        center = np.mean(origin_point_array, axis=0)
+
+        trans_point_array = transPointArray(origin_point_array,
+                                            translate,
+                                            euler_angle,
+                                            scale,
+                                            center=center)
+        trans_cad_point_array = transPointArray(origin_cad_point_array,
+                                                translate,
+                                                euler_angle,
+                                                scale,
+                                                center=center)
+
+        data['inputs']['trans_point_array'] = torch.from_numpy(
+            trans_point_array).float()
+        data['inputs']['trans_cad_point_array'] = torch.from_numpy(
+            trans_cad_point_array).float()
+
+        if training:
+            rotate_matrix = getRotateMatrix(euler_angle)
+            data['inputs']['rotate_matrix'] = torch.from_numpy(
+                rotate_matrix).to(torch.float32)
+        return data
+
+    def getItem(self, cad_model_file_path, training=True):
+        if isinstance(cad_model_file_path, list):
+            return self.getItemWithPair(cad_model_file_path, training)
 
         data = {'inputs': {}, 'predictions': {}, 'losses': {}, 'logs': {}}
 
@@ -153,6 +233,16 @@ class CADDataset(Dataset):
             data['inputs']['rotate_matrix'] = torch.from_numpy(
                 rotate_matrix).to(torch.float32)
         return data
+
+    def __getitem__(self, idx, training=True):
+        if self.training:
+            idx = self.train_idx_list[idx]
+        else:
+            idx = self.eval_idx_list[idx]
+
+        cad_model_file_path = self.cad_model_file_path_list[idx]
+
+        return self.getItem(cad_model_file_path, training)
 
     def __len__(self):
         if self.training:
