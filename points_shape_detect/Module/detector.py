@@ -16,7 +16,7 @@ from points_shape_detect.Method.device import toCuda
 class Detector(object):
 
     def __init__(self, model_file_path=None):
-        self.model = PointsShapeNet().cuda()
+        self.model = PointsShapeNet(True).cuda()
 
         if model_file_path is not None:
             self.loadModel(model_file_path)
