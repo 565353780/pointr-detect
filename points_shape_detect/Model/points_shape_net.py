@@ -11,11 +11,13 @@ from points_shape_detect.Model.complete.shape_complete_net import ShapeCompleteN
 
 class PointsShapeNet(nn.Module):
 
-    def __init__(self):
+    def __init__(self, infer=False):
         super().__init__()
-        self.points_encoder = PointsEncoder()
-        self.bbox_net = BBoxNet()
-        self.shape_complete_net = ShapeCompleteNet()
+        self.points_encoder = PointsEncoder(infer)
+        self.bbox_net = BBoxNet(infer)
+        self.shape_complete_net = ShapeCompleteNet(infer)
+
+        self.infer = infer
         return
 
     @torch.no_grad()

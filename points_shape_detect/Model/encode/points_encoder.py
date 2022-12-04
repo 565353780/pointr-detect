@@ -10,7 +10,7 @@ from points_shape_detect.Model.encode.pc_transformer import PCTransformer
 
 class PointsEncoder(nn.Module):
 
-    def __init__(self):
+    def __init__(self, infer=False):
         super().__init__()
         #M
         self.num_query = 96
@@ -31,6 +31,8 @@ class PointsEncoder(nn.Module):
                                           nn.Conv1d(1024, 1024, 1))
 
         self.reduce_map = nn.Linear(self.trans_dim + 1027, self.trans_dim)
+
+        self.infer = infer
         return
 
     @torch.no_grad()
@@ -82,7 +84,7 @@ class PointsEncoder(nn.Module):
 
     @torch.no_grad()
     def moveToOrigin(self, data):
-        if self.training:
+        if not self.infer:
             return self.moveToOriginWithGT(data)
 
         if 'origin_query_point_array' in data['inputs'].keys():

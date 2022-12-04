@@ -85,16 +85,12 @@ class CADDataset(Dataset):
 
         print("[INFO][CADDataset::loadScan2CAD]")
         print("\t start load scan2cad dataset...")
-        load_num = 0
         for scene_name in tqdm(scene_name_list):
             scene_folder_path = normal_object_dataset_folder_path + scene_name + "/"
 
             object_file_name_list = dataset_manager.getScanNetObjectFileNameList(
                 scene_name)
             for object_file_name in object_file_name_list:
-                load_num += 1
-                if load_num > 10:
-                    return True
                 object_npy_file_path = scene_folder_path + object_file_name.split(
                     ".")[0] + "_obj.npy"
                 cad_npy_file_path = scene_folder_path + object_file_name.split(

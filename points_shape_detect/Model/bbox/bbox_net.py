@@ -10,7 +10,7 @@ from points_shape_detect.Method.weight import setWeight
 
 class BBoxNet(nn.Module):
 
-    def __init__(self):
+    def __init__(self, infer=False):
         super().__init__()
         #M
         self.num_query = 96
@@ -31,6 +31,8 @@ class BBoxNet(nn.Module):
                                             nn.Conv1d(3, 3, 1))
 
         self.l1_loss = nn.SmoothL1Loss()
+
+        self.infer = infer
         return
 
     def encodeOriginBBoxFeature(self, data):
@@ -62,7 +64,7 @@ class BBoxNet(nn.Module):
         data['predictions']['origin_bbox'] = origin_bbox
         data['predictions']['origin_center'] = origin_center
 
-        if self.training:
+        if not self.infer:
             data = self.lossOriginBBox(data)
         return data
 
@@ -83,7 +85,7 @@ class BBoxNet(nn.Module):
         return data
 
     def addWeight(self, data):
-        if not self.training:
+        if self.infer:
             return data
 
         data = setWeight(data, 'loss_origin_bbox_l1', 1000)

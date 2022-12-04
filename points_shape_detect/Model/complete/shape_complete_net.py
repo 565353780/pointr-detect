@@ -12,7 +12,7 @@ from points_shape_detect.Model.complete.fold import Fold
 
 class ShapeCompleteNet(nn.Module):
 
-    def __init__(self):
+    def __init__(self, infer=False):
         super().__init__()
         #M
         self.num_query = 96
@@ -27,6 +27,8 @@ class ShapeCompleteNet(nn.Module):
                                hidden_dim=256)  # rebuild a cluster point
 
         self.loss_func = ChamferDistanceL1()
+
+        self.infer = infer
         return
 
     def decodeOriginPatchPoints(self, data):
@@ -82,7 +84,7 @@ class ShapeCompleteNet(nn.Module):
         data['predictions']['origin_coarse_points'] = origin_coarse_points
         data['predictions']['origin_dense_points'] = origin_dense_points
 
-        if self.training:
+        if not self.infer:
             data = self.lossOriginComplete(data)
         return data
 
@@ -101,7 +103,7 @@ class ShapeCompleteNet(nn.Module):
         return data
 
     def addWeight(self, data):
-        if not self.training:
+        if self.infer:
             return data
 
         data = setWeight(data, 'loss_origin_coarse', 1000)
