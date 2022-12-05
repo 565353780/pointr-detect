@@ -16,7 +16,7 @@ from points_shape_detect.Method.device import toCuda
 class RotateDetector(object):
 
     def __init__(self, model_file_path=None):
-        self.model = ContinusRotateNet().cuda()
+        self.model = ContinusRotateNet(True).cuda()
 
         if model_file_path is not None:
             self.loadModel(model_file_path)

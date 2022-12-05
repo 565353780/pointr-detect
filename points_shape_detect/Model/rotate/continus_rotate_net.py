@@ -13,7 +13,7 @@ from points_shape_detect.Method.weight import setWeight
 
 class ContinusRotateNet(nn.Module):
 
-    def __init__(self):
+    def __init__(self, infer=False):
         super().__init__()
 
         # bx#pointx3 -> bx1x1024
@@ -28,6 +28,8 @@ class ContinusRotateNet(nn.Module):
                                  nn.Linear(512, 6))
 
         self.mse_loss = nn.MSELoss()
+
+        self.infer = infer
         return
 
     def encodeRotateMatrix(self, data):
@@ -48,11 +50,11 @@ class ContinusRotateNet(nn.Module):
         data['predictions']['rotation'] = rotation
         data['predictions']['rotate_matrix'] = rotate_matrix
 
-        #  if self.training:
-        data = self.lossRotate(data)
+        if not self.infer:
+            data = self.lossRotate(data)
 
-        #  if self.training:
-        data = self.encodeCompleteRotateMatrix(data)
+        if not self.infer:
+            data = self.encodeCompleteRotateMatrix(data)
         return data
 
     def lossRotate(self, data):
@@ -86,8 +88,8 @@ class ContinusRotateNet(nn.Module):
         data['predictions']['complete_rotation'] = rotation
         data['predictions']['complete_rotate_matrix'] = rotate_matrix
 
-        #  if self.training:
-        data = self.lossCompleteRotate(data)
+        if not self.infer:
+            data = self.lossCompleteRotate(data)
         return data
 
     def lossCompleteRotate(self, data):
@@ -121,8 +123,8 @@ class ContinusRotateNet(nn.Module):
         return data
 
     def addWeight(self, data):
-        #  if not self.training:
-        return data
+        if self.infer:
+            return data
 
         data = setWeight(data, 'loss_rotate_matrix', 1)
         #  data = setWeight(data, 'loss_geodesic', 1)
@@ -134,7 +136,7 @@ class ContinusRotateNet(nn.Module):
     def forward(self, data):
         data = self.encodeRotateMatrix(data)
 
-        #  if not self.training:
+        #  if self.infer:
         #  data = self.rotateBackByPredict(data)
 
         data = self.addWeight(data)
