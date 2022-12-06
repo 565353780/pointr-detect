@@ -4,7 +4,7 @@
 import torch
 from torch import nn
 
-from points_shape_detect.Lib.chamfer_dist import ChamferDistanceL1
+from points_shape_detect.Lib.chamfer_dist import WeightedChamferDistanceL2
 from points_shape_detect.Method.sample import fps
 from points_shape_detect.Method.weight import setWeight
 from points_shape_detect.Model.complete.fold import Fold
@@ -26,7 +26,7 @@ class ShapeCompleteNet(nn.Module):
                                step=self.fold_step,
                                hidden_dim=256)  # rebuild a cluster point
 
-        self.loss_func = ChamferDistanceL1()
+        self.loss_func = WeightedChamferDistanceL2()
 
         self.infer = infer
         return
@@ -89,13 +89,16 @@ class ShapeCompleteNet(nn.Module):
         return data
 
     def lossOriginComplete(self, data):
+        origin_query_point_array = data['inputs']['origin_query_point_array']
         origin_point_array = data['inputs']['origin_point_array']
         origin_coarse_points = data['predictions']['origin_coarse_points']
         origin_dense_points = data['predictions']['origin_dense_points']
 
-        loss_origin_coarse = self.loss_func(origin_coarse_points,
+        loss_origin_coarse = self.loss_func(origin_query_point_array,
+                                            origin_coarse_points,
                                             origin_point_array)
-        loss_origin_fine = self.loss_func(origin_dense_points,
+        loss_origin_fine = self.loss_func(origin_query_point_array,
+                                          origin_dense_points,
                                           origin_point_array)
 
         data['losses']['loss_origin_coarse'] = loss_origin_coarse
