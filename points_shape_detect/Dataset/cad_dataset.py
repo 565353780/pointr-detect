@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+
 import numpy as np
 import torch
 from auto_cad_recon.Module.dataset_manager import DatasetManager
@@ -10,10 +11,10 @@ from tqdm import tqdm
 
 from points_shape_detect.Data.io import IO
 from points_shape_detect.Method.matrix import getRotateMatrix
+from points_shape_detect.Method.path import createFileFolder, renameFile
 from points_shape_detect.Method.trans import (getInverseTrans,
                                               normalizePointArray,
                                               transPointArray)
-from points_shape_detect.Method.path import createFileFolder, renameFile
 
 
 class CADDataset(Dataset):
@@ -86,6 +87,8 @@ class CADDataset(Dataset):
         print("[INFO][CADDataset::loadScan2CAD]")
         print("\t start load scan2cad dataset...")
         for scene_name in tqdm(scene_name_list):
+            scene_name = "scene0474_02"
+
             scene_folder_path = normal_object_dataset_folder_path + scene_name + "/"
 
             object_file_name_list = dataset_manager.getScanNetObjectFileNameList(
@@ -141,6 +144,41 @@ class CADDataset(Dataset):
                                                  file_name)
         return True
 
+    def getRotateDataWithPair(self, cad_model_file_path, training=True):
+        data = {'inputs': {}, 'predictions': {}, 'losses': {}, 'logs': {}}
+
+        object_npy_file_path, cad_npy_file_path = cad_model_file_path
+
+        object_point_array = IO.get(object_npy_file_path).astype(np.float32)
+        cad_point_array = IO.get(cad_npy_file_path).astype(np.float32)
+
+        origin_point_array, origin_cad_point_array = normalizePointArray(
+            object_point_array, cad_point_array)
+
+        origin_point_array = torch.from_numpy(origin_point_array).to(
+            torch.float32).cuda().unsqueeze(0)
+        origin_cad_point_array = torch.from_numpy(origin_cad_point_array).to(
+            torch.float32).cuda().unsqueeze(0)
+
+        #  translate = ((torch.rand(3) - 0.5) * 1000).to(torch.float32).cuda()
+        #  euler_angle = torch.tensor([0.0, 0.0, 0.0], dtype=torch.float32).cuda()
+        #  scale = (1.0 + ((torch.rand(3) - 0.5) * 0.1)).to(torch.float32).cuda()
+        #  center = torch.mean(origin_point_array, 0)
+        #  trans_point_array = transPointArray(origin_point_array,
+        #  translate,
+        #  euler_angle,
+        #  scale,
+        #  center=center).unsqueeze(0)
+        #  trans_cad_point_array = transPointArray(origin_cad_point_array,
+        #  translate,
+        #  euler_angle,
+        #  scale,
+        #  center=center).unsqueeze(0)
+
+        data['inputs']['trans_point_array'] = origin_point_array
+        data['inputs']['trans_cad_point_array'] = origin_cad_point_array
+        return data
+
     def getRotateData(self, idx, training=True):
         if self.training:
             idx = self.train_idx_list[idx]
@@ -148,6 +186,9 @@ class CADDataset(Dataset):
             idx = self.eval_idx_list[idx]
 
         cad_model_file_path = self.cad_model_file_path_list[idx]
+
+        if isinstance(cad_model_file_path, list):
+            return self.getRotateDataWithPair(cad_model_file_path, training)
 
         data = {'inputs': {}, 'predictions': {}, 'losses': {}, 'logs': {}}
 
@@ -157,14 +198,13 @@ class CADDataset(Dataset):
         origin_point_array = torch.from_numpy(origin_point_array).to(
             torch.float32).cuda()
 
-        translate = ((torch.rand(3) - 0.5) * 1000).to(torch.float32).cuda()
-        euler_angle = torch.tensor([0.0, 0.0, 0.0], dtype=torch.float32).cuda()
-        scale = (1.0 + ((torch.rand(3) - 0.5) * 0.1)).to(torch.float32).cuda()
+        #  translate = ((torch.rand(3) - 0.5) * 1000).to(torch.float32).cuda()
+        #  euler_angle = torch.tensor([0.0, 0.0, 0.0], dtype=torch.float32).cuda()
+        #  scale = (1.0 + ((torch.rand(3) - 0.5) * 0.1)).to(torch.float32).cuda()
+        #  trans_point_array = transPointArray(origin_point_array, translate,
+        #  euler_angle, scale).unsqueeze(0)
 
-        trans_point_array = transPointArray(origin_point_array, translate,
-                                            euler_angle, scale).unsqueeze(0)
-
-        data['inputs']['trans_point_array'] = trans_point_array
+        data['inputs']['trans_point_array'] = origin_point_array
         return data
 
     def getItemWithPair(self, cad_model_file_path, training=True):
@@ -181,6 +221,7 @@ class CADDataset(Dataset):
         translate = (np.random.rand(3) - 0.5) * 1000
         euler_angle = np.random.rand(3) * 360.0
         scale = 1.0 + ((np.random.rand(3) - 0.5) * 0.1)
+        #  scale = np.array([1.0, 1.0, 1.0])
 
         center = np.mean(origin_point_array, axis=0)
 
