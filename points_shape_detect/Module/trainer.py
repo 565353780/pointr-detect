@@ -35,9 +35,9 @@ def worker_init_fn(worker_id):
 class Trainer(object):
 
     def __init__(self):
-        self.batch_size = 20
-        self.lr = 1e-5
-        self.weight_decay = 1e-5
+        self.batch_size = 24
+        self.lr = 1e-4
+        self.weight_decay = 1e-4
         self.decay_step = 21
         self.lr_decay = 0.76
         self.lowest_decay = 0.02
@@ -146,7 +146,7 @@ class Trainer(object):
         trans_point_array = data['inputs']['trans_point_array']
 
         trans_query_point_array, _ = seprate_point_cloud(
-            trans_point_array, [0.0, 0.75])
+            trans_point_array, [0.0, 0.5])
 
         data['inputs']['trans_query_point_array'] = trans_query_point_array
         return data

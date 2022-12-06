@@ -31,8 +31,8 @@ class RotateTrainer(object):
 
     def __init__(self):
         self.batch_size = 64
-        self.lr = 1e-5
-        self.weight_decay = 1e-5
+        self.lr = 1e-6
+        self.weight_decay = 1e-6
         self.decay_step = 21
         self.lr_decay = 0.76
         self.lowest_decay = 0.02
@@ -122,7 +122,7 @@ class RotateTrainer(object):
             trans_point_array = data['inputs']['trans_point_array']
 
             trans_sample_point_array, _ = seprate_point_cloud(
-                trans_point_array, [0.0, 0.75])
+                trans_point_array, [0.0, 0.5])
 
             points_center = torch.mean(trans_point_array[0], 0)
             query_points_center = torch.mean(trans_sample_point_array[0], 0)
