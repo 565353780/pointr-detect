@@ -60,6 +60,8 @@ class CADDataset(Dataset):
             random_idx_list = np.arange(model_num)
 
         self.train_idx_list = random_idx_list[:train_model_num]
+        # FIXME: for test only
+        self.train_idx_list = random_idx_list
         self.eval_idx_list = random_idx_list[train_model_num:]
         return True
 
