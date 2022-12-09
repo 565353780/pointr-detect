@@ -18,6 +18,7 @@ from points_shape_detect.Method.sample import seprate_point_cloud
 from points_shape_detect.Method.time import getCurrentTime
 from points_shape_detect.Method.trans import getInverseTrans, transPointArray
 from points_shape_detect.Model.rotate.continus_rotate_net import ContinusRotateNet
+from points_shape_detect.Model.rotate.transformer_rotate_net import TransformerRotateNet
 from points_shape_detect.Dataset.cad_dataset import CADDataset
 from points_shape_detect.Scheduler.bn_momentum import BNMomentumScheduler
 from points_shape_detect.Method.render import (renderPointArray,
@@ -30,7 +31,7 @@ from points_shape_detect.Method.render import (renderPointArray,
 class RotateTrainer(object):
 
     def __init__(self):
-        self.batch_size = 64
+        self.batch_size = 12
         self.lr = 1e-6
         self.weight_decay = 1e-6
         self.decay_step = 21
@@ -46,7 +47,8 @@ class RotateTrainer(object):
         self.eval_loss_min = float('inf')
         self.log_folder_name = getCurrentTime()
 
-        self.model = ContinusRotateNet().cuda()
+        #  self.model = ContinusRotateNet().cuda()
+        self.model = TransformerRotateNet().cuda()
 
         self.train_dataset = CADDataset()
         self.eval_dataset = CADDataset(False)

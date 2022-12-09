@@ -128,7 +128,7 @@ class PointsEncoder(nn.Module):
         origin_coarse_point_cloud = data['predictions'][
             'origin_coarse_point_cloud']
 
-        B, M, C = data['predictions']['origin_encode_feature'].shape
+        B, M, C = origin_encode_feature.shape
 
         # BxMxC -[transpose]-> BxCxM -[increase_dim]-> Bx1024xM -[transpose]-> BxMx1024
         origin_points_feature = self.increase_dim(

@@ -23,7 +23,7 @@ class ContinusRotateNet(nn.Module):
             nn.Conv1d(128, 1024, kernel_size=1),
             nn.AdaptiveMaxPool1d(output_size=1))
 
-        # bx2048 -> bx6
+        # bx1024 -> bx6
         self.mlp = nn.Sequential(nn.Linear(1024, 512), nn.LeakyReLU(),
                                  nn.Linear(512, 6))
 
