@@ -8,6 +8,7 @@ import open3d as o3d
 from tqdm import tqdm
 
 from points_shape_detect.Model.rotate.continus_rotate_net import ContinusRotateNet
+from points_shape_detect.Model.rotate.transformer_rotate_net import TransformerRotateNet
 
 from points_shape_detect.Method.sample import fps
 from points_shape_detect.Method.device import toCuda
@@ -16,7 +17,8 @@ from points_shape_detect.Method.device import toCuda
 class RotateDetector(object):
 
     def __init__(self, model_file_path=None):
-        self.model = ContinusRotateNet(True).cuda()
+        #  self.model = ContinusRotateNet(True).cuda()
+        self.model = TransformerRotateNet(True).cuda()
 
         if model_file_path is not None:
             self.loadModel(model_file_path)
