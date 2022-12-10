@@ -232,10 +232,10 @@ class TransformerRotateNet(nn.Module):
         if self.infer:
             return data
 
-        data = setWeight(data, 'loss_rotate_matrix', 1)
+        data = setWeight(data, 'loss_rotate_matrix', 1000)
         #  data = setWeight(data, 'loss_geodesic', 1)
 
-        data = setWeight(data, 'loss_complete_rotate_matrix', 1)
+        data = setWeight(data, 'loss_complete_rotate_matrix', 1000)
         #  data = setWeight(data, 'loss_complete_geodesic', 1)
         return data
 
