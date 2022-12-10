@@ -14,8 +14,8 @@ from points_shape_detect.Module.rotate_trainer import RotateTrainer
 
 
 def demo():
-    model_file_path = "./output/pretrained_rotate1/model_best.pth"
-    model_file_path = ""
+    #  model_file_path = "./output/pretrained_continus_rotate1/model_best.pth"
+    model_file_path = "./output/pretrained_transformer_rotate1/model_best.pth"
     resume_model_only = True
     print_progress = True
 
