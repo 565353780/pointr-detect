@@ -109,8 +109,8 @@ class ShapeCompleteNet(nn.Module):
         if self.infer:
             return data
 
-        data = setWeight(data, 'loss_origin_coarse', 1000)
-        data = setWeight(data, 'loss_origin_fine', 1000)
+        data = setWeight(data, 'loss_origin_coarse', 10000)
+        data = setWeight(data, 'loss_origin_fine', 10000)
         return data
 
     def forward(self, data):
