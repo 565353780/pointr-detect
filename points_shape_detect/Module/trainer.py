@@ -172,9 +172,9 @@ class Trainer(object):
             data = self.model(data)
 
             print(data['predictions'].keys())
-            renderRotateBackPoints(data)
+            #  renderRotateBackPoints(data)
             renderTransBackPoints(data)
-            #  renderPredictBBox(data)
+            renderPredictBBox(data)
         return True
 
     def trainStep(self, data):
