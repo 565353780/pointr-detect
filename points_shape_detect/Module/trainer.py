@@ -95,14 +95,6 @@ class Trainer(object):
 
         model_dict = torch.load(model_file_path)
 
-        #  from collections import OrderedDict
-        #  new_state_dict = OrderedDict()
-        #  for k, v in model_dict['model'].items():
-        #  if 'bbox_net.scale_decoder' in k:
-        #  continue
-        #  new_state_dict[k] = v
-        #  self.model.load_state_dict(new_state_dict)
-
         self.model.load_state_dict(model_dict['model'])
 
         if not resume_model_only:
