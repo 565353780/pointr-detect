@@ -162,23 +162,26 @@ class CADDataset(Dataset):
         origin_cad_point_array = torch.from_numpy(origin_cad_point_array).to(
             torch.float32).cuda().unsqueeze(0)
 
-        #  translate = ((torch.rand(3) - 0.5) * 1000).to(torch.float32).cuda()
-        #  euler_angle = torch.tensor([0.0, 0.0, 0.0], dtype=torch.float32).cuda()
-        #  scale = (1.0 + ((torch.rand(3) - 0.5) * 0.1)).to(torch.float32).cuda()
-        #  center = torch.mean(origin_point_array, 0)
-        #  trans_point_array = transPointArray(origin_point_array,
-        #  translate,
-        #  euler_angle,
-        #  scale,
-        #  center=center).unsqueeze(0)
-        #  trans_cad_point_array = transPointArray(origin_cad_point_array,
-        #  translate,
-        #  euler_angle,
-        #  scale,
-        #  center=center).unsqueeze(0)
+        translate = ((torch.rand(3) - 0.5) * 1000).to(torch.float32).cuda()
+        euler_angle = torch.tensor([0.0, 0.0, 0.0], dtype=torch.float32).cuda()
+        #  scale = (1.0 + ((torch.rand(3) - 0.5) * 0.5)).to(torch.float32).cuda()
+        scale_value = np.exp((np.random.rand() - 0.5) * 4)
+        scale = torch.from_numpy([scale_value, scale_value,
+                                  scale_value]).to(torch.float32).cuda()
+        center = torch.mean(origin_point_array, 0)
+        trans_point_array = transPointArray(origin_point_array,
+                                            translate,
+                                            euler_angle,
+                                            scale,
+                                            center=center).unsqueeze(0)
+        trans_cad_point_array = transPointArray(origin_cad_point_array,
+                                                translate,
+                                                euler_angle,
+                                                scale,
+                                                center=center).unsqueeze(0)
 
-        data['inputs']['trans_point_array'] = origin_point_array
-        data['inputs']['trans_cad_point_array'] = origin_cad_point_array
+        data['inputs']['trans_point_array'] = trans_point_array
+        data['inputs']['trans_cad_point_array'] = trans_cad_point_array
         return data
 
     def getRotateData(self, idx, training=True):
@@ -200,13 +203,16 @@ class CADDataset(Dataset):
         origin_point_array = torch.from_numpy(origin_point_array).to(
             torch.float32).cuda()
 
-        #  translate = ((torch.rand(3) - 0.5) * 1000).to(torch.float32).cuda()
-        #  euler_angle = torch.tensor([0.0, 0.0, 0.0], dtype=torch.float32).cuda()
+        translate = ((torch.rand(3) - 0.5) * 1000).to(torch.float32).cuda()
+        euler_angle = torch.tensor([0.0, 0.0, 0.0], dtype=torch.float32).cuda()
         #  scale = (1.0 + ((torch.rand(3) - 0.5) * 0.1)).to(torch.float32).cuda()
-        #  trans_point_array = transPointArray(origin_point_array, translate,
-        #  euler_angle, scale).unsqueeze(0)
+        scale_value = np.exp((np.random.rand() - 0.5) * 4)
+        scale = torch.from_numpy([scale_value, scale_value,
+                                  scale_value]).to(torch.float32).cuda()
+        trans_point_array = transPointArray(origin_point_array, translate,
+                                            euler_angle, scale).unsqueeze(0)
 
-        data['inputs']['trans_point_array'] = origin_point_array
+        data['inputs']['trans_point_array'] = trans_point_array
         return data
 
     def getItemWithPair(self, cad_model_file_path, training=True):
@@ -222,8 +228,9 @@ class CADDataset(Dataset):
 
         translate = (np.random.rand(3) - 0.5) * 1000
         euler_angle = np.random.rand(3) * 360.0
-        scale = 1.0 + ((np.random.rand(3) - 0.5) * 0.1)
-        #  scale = np.array([1.0, 1.0, 1.0])
+        #  scale = 1.0 + ((np.random.rand(3) - 0.5) * 0.1)
+        scale_value = np.exp((np.random.rand() - 0.5) * 4)
+        scale = np.array([scale_value, scale_value, scale_value])
 
         center = np.mean(origin_point_array, axis=0)
 
@@ -260,7 +267,9 @@ class CADDataset(Dataset):
 
         translate = (np.random.rand(3) - 0.5) * 1000
         euler_angle = np.random.rand(3) * 360.0
-        scale = 1.0 + ((np.random.rand(3) - 0.5) * 0.1)
+        #  scale = 1.0 + ((np.random.rand(3) - 0.5) * 0.1)
+        scale_value = np.exp((np.random.rand() - 0.5) * 4)
+        scale = np.array([scale_value, scale_value, scale_value])
 
         trans_point_array = transPointArray(origin_point_array, translate,
                                             euler_angle, scale)
