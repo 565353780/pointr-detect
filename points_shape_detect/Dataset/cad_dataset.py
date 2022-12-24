@@ -166,8 +166,9 @@ class CADDataset(Dataset):
         euler_angle = torch.tensor([0.0, 0.0, 0.0], dtype=torch.float32).cuda()
         #  scale = (1.0 + ((torch.rand(3) - 0.5) * 0.5)).to(torch.float32).cuda()
         scale_value = np.exp((np.random.rand() - 0.5) * 4)
-        scale = torch.from_numpy([scale_value, scale_value,
-                                  scale_value]).to(torch.float32).cuda()
+        scale = torch.from_numpy(
+            np.array([scale_value, scale_value,
+                      scale_value])).to(torch.float32).cuda()
         center = torch.mean(origin_point_array, 0)
         trans_point_array = transPointArray(origin_point_array,
                                             translate,
