@@ -35,7 +35,7 @@ def worker_init_fn(worker_id):
 class Trainer(object):
 
     def __init__(self):
-        self.batch_size = 24
+        self.batch_size = 16
         self.lr = 1e-6
         self.weight_decay = 1e-6
         self.decay_step = 21

@@ -12,6 +12,8 @@ from points_shape_detect.Model.points_shape_net import PointsShapeNet
 from points_shape_detect.Method.sample import fps
 from points_shape_detect.Method.device import toCuda
 
+from points_shape_detect.Method.render import renderPredictBBox
+
 
 class Detector(object):
 
@@ -49,4 +51,6 @@ class Detector(object):
         data['inputs']['origin_query_point_array'] = fps_points
 
         data = self.model(data)
+
+        #  renderPredictBBox(data)
         return data
