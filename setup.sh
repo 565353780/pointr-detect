@@ -9,7 +9,7 @@ pip install argparse easydict h5py matplotlib numpy opencv-python pyyaml \
 pip install open3d==0.10 timm==0.4.5
 
 pip install torch torchvision torchaudio \
-  --extra-index-url https://download.pytorch.org/whl/cu116
+  --extra-index-url https://download.pytorch.org/whl/cu118
 
 pip install \
   "git+https://github.com/erikwijmans/Pointnet2_PyTorch.git#egg=pointnet2_ops&subdirectory=pointnet2_ops_lib"
@@ -18,4 +18,3 @@ pip install --upgrade \
 
 cd ../point_shape_detect/Lib/chamfer_dist
 python setup.py install --user
-
