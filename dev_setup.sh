@@ -9,8 +9,8 @@ pip install argparse easydict h5py matplotlib numpy opencv-python pyyaml \
   open3d
 pip install timm==0.4.5
 
-pip install torch torchvision torchaudio \
-  --extra-index-url https://download.pytorch.org/whl/cu118
+pip install torch==1.13.1+cu117 torchvision==0.14.1+cu117 torchaudio==0.13.1 \
+  --extra-index-url https://download.pytorch.org/whl/cu117
 
 pip install \
   "git+https://github.com/erikwijmans/Pointnet2_PyTorch.git#egg=pointnet2_ops&subdirectory=pointnet2_ops_lib"
